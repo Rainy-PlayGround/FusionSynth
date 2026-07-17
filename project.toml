@@ -7,5 +7,14 @@ internal_version = true
 authors = ["RainyXeon", "DeepLunaria Foundation"]
 codename = "Anemone"
 
-[test_config]
-volume = 1
+[audio_config]
+  [audio_config.volume]
+    enable = true
+    amount = 1.5
+  [audio_config.eq]
+    enable = true
+  [audio_config.limiter]
+    enable = true
+    threshold = 0.95
+		release = 0.001
+		gain = 1.0
