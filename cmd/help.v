@@ -1,9 +1,9 @@
-module cmd
+module fsv_cmd
 
-import utils
+import utils as fsv_utils
 
 pub fn fsv_cli_help() {
-	metadata := utils.metadata_reader()
+	metadata := fsv_utils.metadata_reader()
 	println('Usage:')
 	println('')
 	println('	${metadata.name} <command> [arguments]')

@@ -5,4 +5,7 @@ version = "0.0.1"
 license = "GPL-2.0"
 internal_version = true
 authors = ["RainyXeon", "DeepLunaria Foundation"]
-codename = "Scilla"
+codename = "Anemone"
+
+[test_config]
+volume = 1
