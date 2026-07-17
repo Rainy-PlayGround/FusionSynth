@@ -10,11 +10,11 @@ codename = "Anemone"
 [audio_config]
   [audio_config.volume]
     enable = true
-    amount = 1.5
+    amount = 1
   [audio_config.eq]
-    enable = true
+    enable = false
   [audio_config.limiter]
-    enable = true
+    enable = false
     threshold = 0.95
 		release = 0.001
 		gain = 1.0
