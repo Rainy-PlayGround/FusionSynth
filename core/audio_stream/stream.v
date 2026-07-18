@@ -4,6 +4,7 @@ import log
 import os
 import core.ring_buffer
 import processor
+import runtime
 
 pub struct AudioStream {
 pub mut:
@@ -17,6 +18,7 @@ pub mut:
 	eq					processor.Equalizer
 	limiter     processor.Limiter
 	compressor  processor.Compressor
+	reverb 			processor.Reverb
 }
 
 const logger := log.Log{}
@@ -35,6 +37,10 @@ fn input_processor(single_sample f32, mut s AudioStream) f32 {
 
 	if s.compressor.enable {
 		out = s.compressor.process(out)
+	}
+
+	if s.reverb.enable {
+		out = s.reverb.process(out)
 	}
 
 	if s.limiter.enable {
@@ -67,7 +73,14 @@ pub fn stream_callback(buffer &f32, num_frames int, num_channels int, user_data 
 			buffer[i] = 0.0
 			debug_sample[i] = buffer[i]
 		}
-		logger.info("[cmd/play.v] Debug Sample Array: ${debug_sample[0..5]} ")
+
+		used_bytes := runtime.used_memory() or {
+      eprintln('Failed to get memory usage: ${err}')
+      0
+    }
+
+    mem_mb := f64(used_bytes) / 1024.0 / 1024.0
+		logger.info("Mem: ${mem_mb:.2f} MB, Sample Block: ${debug_sample[0..5]} ")
 	}
 }
 

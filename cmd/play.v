@@ -14,8 +14,8 @@ import core.ring_buffer
 
 const logger := log.Log{}
 
-fn eq_generator(audio_config utils.AudioConfig) audio_processor.Equalizer {
-	return audio_processor.Equalizer{
+fn eq_generator(audio_config utils.AudioConfig, wav core.WavHeader) audio_processor.Equalizer {
+	mut eq := audio_processor.Equalizer{
 		enable: audio_config.eq.enable
 		bands: [
 			audio_processor.RuntimeEQBand{
@@ -118,6 +118,16 @@ fn eq_generator(audio_config utils.AudioConfig) audio_processor.Equalizer {
 			}
 		]
 	}
+
+	for mut band in eq.bands {
+		audio_processor.recalculate_biquad(
+			mut band.filter,
+			band.params,
+			wav.sample_rate
+		)
+	}
+
+	return eq
 }
 
 fn fsv_cli_play() {
@@ -144,16 +154,6 @@ fn fsv_cli_play() {
 	mut file := os.open(file_path) or { panic(err.msg()) }
 	file.seek(wav.data_offset, .start) or { panic(err.msg()) }
 
-	mut eq := eq_generator(audio_config)
-
-	for mut band in eq.bands {
-		audio_processor.recalculate_biquad(
-			mut band.filter,
-			band.params,
-			wav.sample_rate
-		)
-	}
-
 	// INFO: Create the audio stream with a 64k f32 sample ring buffer
 	mut stream := audio_stream.AudioStream{
 		file: file
@@ -166,7 +166,7 @@ fn fsv_cli_play() {
 			amount: audio_config.volume.amount,
 			enable: audio_config.volume.enable
 		}
-		eq: eq
+		eq: eq_generator(audio_config, wav)
 		limiter : audio_processor.Limiter {
 			enable: audio_config.limiter.enable
 			threshold: audio_config.limiter.threshold
@@ -180,15 +180,21 @@ fn fsv_cli_play() {
 			// Heavy compression
 			ratio: 20.0
 			// React almost instantly
-			attack: audio_processor.ms_to_coeff(0.5, 48000)
+			attack: audio_processor.ms_to_coeff(0.5, wav.sample_rate)
 			// Recover fairly quickly
-			release: audio_processor.ms_to_coeff(30, 48000)
+			release: audio_processor.ms_to_coeff(30, wav.sample_rate)
 			// Runtime
 			envelope: 0.0
 			gain: 1.0
 			detector: .peak
 			// 10ms RMS buffer (unused in Peak mode)
 			rms: audio_processor.new_rms_detector(480)
+		}
+		reverb: audio_processor.Reverb{
+			enable: true
+			delay: audio_processor.new_delay_line(12000) // wav.sample_rate / 2
+			feedback: 0.65
+			mix: 0.35
 		}
 	}
 
