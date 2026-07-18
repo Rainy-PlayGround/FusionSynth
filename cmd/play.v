@@ -14,31 +14,8 @@ import core.ring_buffer
 
 const logger := log.Log{}
 
-fn fsv_cli_play() {
-	audio_config := utils.audio_config_reader()
-
-	if os.args.len != 3 {
-		eprintln('usage: v run play_wav.v <wavfile.wav>')
-		exit(1)
-	}
-
-	file_path := os.args[2]
-
-	if !os.exists(file_path) {
-		panic('File missing or not found!')
-	}
-
-	wav := core.parse_wav(file_path) or { panic('Failed to parse WAV file: ${err}') }
-
-	logger.info('[cmd/play.v] Loaded: ${file_path}')
-	logger.info('[cmd/play.v] Sample Rate: ${wav.sample_rate} Hz')
-	logger.info('[cmd/play.v] Channels: ${wav.channels}')
-	logger.info('[cmd/play.v] Format: ${wav.bits_per_sec}-bit PCM')
-
-	mut file := os.open(file_path) or { panic(err.msg()) }
-	file.seek(wav.data_offset, .start) or { panic(err.msg()) }
-
-	mut eq := audio_processor.Equalizer{
+fn eq_generator(audio_config utils.AudioConfig) audio_processor.Equalizer {
+	return audio_processor.Equalizer{
 		enable: audio_config.eq.enable
 		bands: [
 			audio_processor.RuntimeEQBand{
@@ -141,6 +118,33 @@ fn fsv_cli_play() {
 			}
 		]
 	}
+}
+
+fn fsv_cli_play() {
+	audio_config := utils.audio_config_reader()
+
+	if os.args.len != 3 {
+		eprintln('usage: v run play_wav.v <wavfile.wav>')
+		exit(1)
+	}
+
+	file_path := os.args[2]
+
+	if !os.exists(file_path) {
+		panic('File missing or not found!')
+	}
+
+	wav := core.parse_wav(file_path) or { panic('Failed to parse WAV file: ${err}') }
+
+	logger.info('[cmd/play.v] Loaded: ${file_path}')
+	logger.info('[cmd/play.v] Sample Rate: ${wav.sample_rate} Hz')
+	logger.info('[cmd/play.v] Channels: ${wav.channels}')
+	logger.info('[cmd/play.v] Format: ${wav.bits_per_sec}-bit PCM')
+
+	mut file := os.open(file_path) or { panic(err.msg()) }
+	file.seek(wav.data_offset, .start) or { panic(err.msg()) }
+
+	mut eq := eq_generator(audio_config)
 
 	for mut band in eq.bands {
 		audio_processor.recalculate_biquad(
@@ -168,6 +172,23 @@ fn fsv_cli_play() {
 			threshold: audio_config.limiter.threshold
 			release: audio_config.limiter.release
 			gain: audio_config.limiter.gain
+		}
+		compressor: audio_processor.Compressor{
+			enable: false
+			// Compress almost everything
+			threshold: 0.15
+			// Heavy compression
+			ratio: 20.0
+			// React almost instantly
+			attack: audio_processor.ms_to_coeff(0.5, 48000)
+			// Recover fairly quickly
+			release: audio_processor.ms_to_coeff(30, 48000)
+			// Runtime
+			envelope: 0.0
+			gain: 1.0
+			detector: .peak
+			// 10ms RMS buffer (unused in Peak mode)
+			rms: audio_processor.new_rms_detector(480)
 		}
 	}
 

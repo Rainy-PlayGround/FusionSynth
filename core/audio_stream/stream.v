@@ -16,6 +16,7 @@ pub mut:
 	volume 			processor.Volume
 	eq					processor.Equalizer
 	limiter     processor.Limiter
+	compressor  processor.Compressor
 }
 
 const logger := log.Log{}
@@ -32,8 +33,12 @@ fn input_processor(single_sample f32, mut s AudioStream) f32 {
 		out = s.eq.process(out)
 	}
 
+	if s.compressor.enable {
+		out = s.compressor.process(out)
+	}
+
 	if s.limiter.enable {
-		out = s.eq.process(out)
+		out = s.limiter.process(out)
 	}
 
   return out
