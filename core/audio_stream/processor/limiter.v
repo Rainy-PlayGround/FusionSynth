@@ -1,8 +1,16 @@
-module audio_stream
+module processor
 
 import math
 
-pub fn (mut limiter LimiterProcessor) process(sample f32) f32 {
+pub struct Limiter {
+pub mut:
+  enable         bool
+	threshold      f32
+	release        f32
+	gain f32
+}
+
+pub fn (mut limiter Limiter) process(sample f32) f32 {
 	mut output := sample
 
 	abs_sample := math.abs(sample)

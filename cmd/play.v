@@ -6,15 +6,16 @@ import os
 import term
 import log
 
-import utils as fsv_utils
-import core as fsv_core
-import core.audio_stream as fsv_audio_stream
-import core.ring_buffer as fsv_ring_buffer
+import utils
+import core
+import core.audio_stream
+import core.audio_stream.processor as audio_processor
+import core.ring_buffer
 
 const logger := log.Log{}
 
 fn fsv_cli_play() {
-	audio_config := fsv_utils.audio_config_reader()
+	audio_config := utils.audio_config_reader()
 
 	if os.args.len != 3 {
 		eprintln('usage: v run play_wav.v <wavfile.wav>')
@@ -27,7 +28,7 @@ fn fsv_cli_play() {
 		panic('File missing or not found!')
 	}
 
-	wav := fsv_core.parse_wav(file_path) or { panic('Failed to parse WAV file: ${err}') }
+	wav := core.parse_wav(file_path) or { panic('Failed to parse WAV file: ${err}') }
 
 	logger.info('[cmd/play.v] Loaded: ${file_path}')
 	logger.info('[cmd/play.v] Sample Rate: ${wav.sample_rate} Hz')
@@ -37,102 +38,102 @@ fn fsv_cli_play() {
 	mut file := os.open(file_path) or { panic(err.msg()) }
 	file.seek(wav.data_offset, .start) or { panic(err.msg()) }
 
-	mut eq := fsv_audio_stream.EqualizerProcessor{
+	mut eq := audio_processor.Equalizer{
 		enable: audio_config.eq.enable
 		bands: [
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 32.0
 					gain: 2.0
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 64.0
 					gain: 2.5
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 125.0
 					gain: 1.5
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 250.0
 					gain: -1.5
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 500.0
 					gain: -2.0
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 1000.0
 					gain: 0.0
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 2000.0
 					gain: 2.0
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 4000.0
 					gain: 3.0
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 8000.0
 					gain: 4.0
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 10000.0
 					gain: 3.0
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 12000.0
 					gain: 2.0
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 14000.0
 					gain: 2.0
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 16000.0
 					gain: 1.0
 					q: 1.0
 				}
 			},
-			fsv_audio_stream.RuntimeEQBand{
-				params: fsv_audio_stream.EQBand{
+			audio_processor.RuntimeEQBand{
+				params: audio_processor.EQBand{
 					frequency: 20000.0
 					gain: 0.0
 					q: 1.0
@@ -142,7 +143,7 @@ fn fsv_cli_play() {
 	}
 
 	for mut band in eq.bands {
-		fsv_audio_stream.recalculate_biquad(
+		audio_processor.recalculate_biquad(
 			mut band.filter,
 			band.params,
 			wav.sample_rate
@@ -150,19 +151,19 @@ fn fsv_cli_play() {
 	}
 
 	// INFO: Create the audio stream with a 64k f32 sample ring buffer
-	mut stream := fsv_audio_stream.AudioStream{
+	mut stream := audio_stream.AudioStream{
 		file: file
-		ring_buffer: fsv_ring_buffer.new_ring_buffer(65536)
+		ring_buffer: ring_buffer.new_ring_buffer(65536)
 		channels: wav.channels
 		sample_rate: wav.sample_rate
 		eof: false
 		total_read: 0
-		volume: fsv_audio_stream.VolumeProcessor {
+		volume: audio_processor.Volume {
 			amount: audio_config.volume.amount,
 			enable: audio_config.volume.enable
 		}
 		eq: eq
-		limiter : fsv_audio_stream.LimiterProcessor {
+		limiter : audio_processor.Limiter {
 			enable: audio_config.limiter.enable
 			threshold: audio_config.limiter.threshold
 			release: audio_config.limiter.release
@@ -171,12 +172,12 @@ fn fsv_cli_play() {
 	}
 
 	// INFO: Preload the ring buffer before we start playback
-	fsv_audio_stream.refill_stream(mut stream)
+	audio_stream.refill_stream(mut stream)
 
 	audio.setup(
 		sample_rate: wav.sample_rate
 		num_channels: wav.channels
-		stream_userdata_cb: fsv_audio_stream.stream_callback
+		stream_userdata_cb: audio_stream.stream_callback
 		user_data: voidptr(&stream)
 	)
 
@@ -185,7 +186,7 @@ fn fsv_cli_play() {
 
 	for {
 		// INFO: Keep refilling the ring buffer from the main loop
-		fsv_audio_stream.refill_stream(mut stream)
+		audio_stream.refill_stream(mut stream)
 
 		stream.ring_buffer.mutex.lock()
 		buffer_size := stream.ring_buffer.size

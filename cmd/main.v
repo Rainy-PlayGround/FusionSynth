@@ -1,6 +1,6 @@
 module fsv_cmd
 
-pub struct IAvaliableCommand {
+pub struct AvaliableCommand {
 pub:
 	run_command fn () = fn () {
 		println('Invalid function')
@@ -9,11 +9,11 @@ pub:
 }
 
 pub const available_command = {
-	'play': IAvaliableCommand{
+	'play': AvaliableCommand{
 		run_command: fsv_cli_play
 		description: 'This command play aiff file.'
 	}
-	'help': IAvaliableCommand{
+	'help': AvaliableCommand{
 		run_command: fsv_cli_help
 		description: "This command list all command and it's desc."
 	}

@@ -1,6 +1,40 @@
-module audio_stream
+module processor
 
 import math
+
+pub struct Biquad {
+pub mut:
+  b0 f32
+  b1 f32
+  b2 f32
+  a1 f32
+  a2 f32
+
+  x1 f32
+  x2 f32
+
+  y1 f32
+  y2 f32
+}
+
+pub struct EQBand {
+pub mut:
+  frequency f32
+  gain      f32
+  q         f32
+}
+
+pub struct RuntimeEQBand {
+pub mut:
+  params EQBand
+  filter Biquad
+}
+
+pub struct Equalizer {
+pub mut:
+  enable bool
+  bands []RuntimeEQBand
+}
 
 pub fn (mut filter Biquad) process(sample f32) f32 {
 	out :=
@@ -20,7 +54,7 @@ pub fn (mut filter Biquad) process(sample f32) f32 {
 	return out
 }
 
-pub fn (mut eq EqualizerProcessor) process(sample f32) f32 {
+pub fn (mut eq Equalizer) process(sample f32) f32 {
 	mut out := sample
 
 	for mut band in eq.bands {

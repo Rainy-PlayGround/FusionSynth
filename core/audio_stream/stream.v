@@ -1,6 +1,22 @@
 module audio_stream
 
 import log
+import os
+import core.ring_buffer
+import processor
+
+pub struct AudioStream {
+pub mut:
+	file        os.File
+	ring_buffer ring_buffer.RingBuffer
+	channels    int
+	sample_rate int
+	eof         bool
+	total_read  u64 // INFO: Tracks overall progress for timing calculations
+	volume 			processor.Volume
+	eq					processor.Equalizer
+	limiter     processor.Limiter
+}
 
 const logger := log.Log{}
 
