@@ -4,26 +4,30 @@ import math
 
 pub struct Limiter {
 pub mut:
-  enable         bool
-	threshold      f32
-	release        f32
-	gain f32
+  enable bool
+  threshold f32
+  ceiling f32
+  attack f32
+  release f32
+  gain f32
 }
 
-pub fn (mut limiter Limiter) process(sample f32) f32 {
-	mut output := sample
+pub fn (mut l Limiter) process(sample f32) f32 {
+  if !l.enable {
+    return sample
+  }
 
-	abs_sample := math.abs(sample)
+  abs_sample := math.abs(sample)
 
-	if abs_sample > limiter.threshold {
-		target_gain := limiter.threshold / abs_sample
+  mut target := f32(1.0)
 
-		limiter.gain = target_gain
-	} else {
-		limiter.gain += (1.0 - limiter.gain) * limiter.release
-	}
+  if abs_sample > l.threshold {
+    target = l.ceiling / abs_sample
+  }
 
-	output *= limiter.gain
+  coeff := if target < l.gain { l.attack } else { l.release }
 
-	return output
+  l.gain = target + coeff * (l.gain - target)
+
+  return sample * l.gain
 }

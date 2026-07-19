@@ -3,10 +3,8 @@ module fsv_cmd
 import sokol.audio
 import time
 import os
-import term
 import log
 
-import utils
 import core
 import core.audio_stream
 import core.audio_stream.processor as audio_processor
@@ -14,9 +12,9 @@ import core.ring_buffer
 
 const logger := log.Log{}
 
-fn eq_generator(audio_config utils.AudioConfig, wav core.WavHeader) audio_processor.Equalizer {
+fn eq_generator(sample_rate int) audio_processor.Equalizer {
 	mut eq := audio_processor.Equalizer{
-		enable: audio_config.eq.enable
+		enable: false
 		bands: [
 			audio_processor.RuntimeEQBand{
 				params: audio_processor.EQBand{
@@ -123,16 +121,70 @@ fn eq_generator(audio_config utils.AudioConfig, wav core.WavHeader) audio_proces
 		audio_processor.recalculate_biquad(
 			mut band.filter,
 			band.params,
-			wav.sample_rate
+			sample_rate
 		)
 	}
 
 	return eq
 }
 
-fn fsv_cli_play() {
-	audio_config := utils.audio_config_reader()
+fn reverb_generator(sample_rate int) audio_processor.Reverb {
+	return audio_processor.Reverb{
+		enable: true
+		mix: 0.75      // much wetter
+		gain: 0.6      // drive the reverb harder
+		combs: [
+			audio_processor.new_comb_filter(audio_processor.ms_to_samples(35.0, sample_rate), 0.90, 0.15),
+			audio_processor.new_comb_filter(audio_processor.ms_to_samples(38.0, sample_rate), 0.91, 0.15),
+			audio_processor.new_comb_filter(audio_processor.ms_to_samples(41.0, sample_rate), 0.92, 0.15),
+			audio_processor.new_comb_filter(audio_processor.ms_to_samples(45.0, sample_rate), 0.93, 0.15),
+		]
+		diffuser: audio_processor.new_allpass(
+			audio_processor.ms_to_samples(8.0, sample_rate),
+			0.7,
+		)
+	}
+}
 
+fn compressor_generator(sample_rate int) audio_processor.Compressor {
+	return audio_processor.Compressor{
+		enable: true
+		// Compress almost everything
+		threshold: 0.15
+		// Heavy compression
+		ratio: 20.0
+		// React almost instantly
+		attack: audio_processor.ms_to_coeff(0.5, sample_rate)
+		// Recover fairly quickly
+		release: audio_processor.ms_to_coeff(30, sample_rate)
+		// Runtime
+		envelope: 0.0
+		gain: 1.0
+		detector: .rms
+		// 10ms RMS buffer (unused in Peak mode)
+		rms: audio_processor.new_rms_detector(480)
+	}
+}
+
+fn limiter_generator() audio_processor.Limiter {
+	return audio_processor.Limiter{
+    enable: true
+    threshold: 0.95
+    ceiling: 0.90
+    attack: 0.05   // fast
+    release: 0.995 // slow
+    gain: 1.0
+	}
+}
+
+fn volume_generator() audio_processor.Volume {
+	return audio_processor.Volume {
+		enable: true
+		amount: 1
+	}
+}
+
+fn fsv_cli_play() {
 	if os.args.len != 3 {
 		eprintln('usage: v run play_wav.v <wavfile.wav>')
 		exit(1)
@@ -162,40 +214,11 @@ fn fsv_cli_play() {
 		sample_rate: wav.sample_rate
 		eof: false
 		total_read: 0
-		volume: audio_processor.Volume {
-			amount: audio_config.volume.amount,
-			enable: audio_config.volume.enable
-		}
-		eq: eq_generator(audio_config, wav)
-		limiter : audio_processor.Limiter {
-			enable: audio_config.limiter.enable
-			threshold: audio_config.limiter.threshold
-			release: audio_config.limiter.release
-			gain: audio_config.limiter.gain
-		}
-		compressor: audio_processor.Compressor{
-			enable: false
-			// Compress almost everything
-			threshold: 0.15
-			// Heavy compression
-			ratio: 20.0
-			// React almost instantly
-			attack: audio_processor.ms_to_coeff(0.5, wav.sample_rate)
-			// Recover fairly quickly
-			release: audio_processor.ms_to_coeff(30, wav.sample_rate)
-			// Runtime
-			envelope: 0.0
-			gain: 1.0
-			detector: .peak
-			// 10ms RMS buffer (unused in Peak mode)
-			rms: audio_processor.new_rms_detector(480)
-		}
-		reverb: audio_processor.Reverb{
-			enable: true
-			delay: audio_processor.new_delay_line(12000) // wav.sample_rate / 2
-			feedback: 0.65
-			mix: 0.35
-		}
+		volume: volume_generator()
+		eq: eq_generator(wav.sample_rate)
+		limiter: limiter_generator()
+		compressor: compressor_generator(wav.sample_rate)
+		reverb: reverb_generator(wav.sample_rate)
 	}
 
 	// INFO: Preload the ring buffer before we start playback
@@ -227,10 +250,9 @@ fn fsv_cli_play() {
 		now := time.now()
 		if now - last_print_time >= time.second {
 			last_print_time = now
-			term.clear()
 		}
 
-		time.sleep(10 * time.millisecond)
+		// time.sleep(10 * time.millisecond)
 	}
 
 	// INFO: Brief pause to let any last hardware samples clear
@@ -238,5 +260,5 @@ fn fsv_cli_play() {
 
 	audio.shutdown()
 	stream.file.close()
-	println('Done!')
+	logger.info('Done!')
 }

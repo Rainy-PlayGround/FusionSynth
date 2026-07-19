@@ -6,15 +6,3 @@ license = "GPL-2.0"
 internal_version = true
 authors = ["RainyXeon", "DeepLunaria Foundation"]
 codename = "Anemone"
-
-[audio_config]
-  [audio_config.volume]
-    enable = true
-    amount = 1
-  [audio_config.eq]
-    enable = false
-  [audio_config.limiter]
-    enable = false
-    threshold = 0.95
-		release = 0.001
-		gain = 1.0
