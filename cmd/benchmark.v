@@ -10,13 +10,6 @@ const benchmark_duration_sec = 30
 const benchmark_sample_rate = 48000
 const benchmark_channels = 2
 
-// INFO: Reuse your existing generators:
-// - volume_generator()
-// - eq_generator()
-// - compressor_generator()
-// - limiter_generator()
-// - reverb_generator()
-
 pub fn fsv_cli_benchmark() {
     sample_rate := benchmark_sample_rate
     channels := benchmark_channels
@@ -33,7 +26,7 @@ pub fn fsv_cli_benchmark() {
     println('Total samples: ${total_samples}')
     println('')
 
-    // INFO: Create a dummy stream with your real processors
+    // Create a dummy stream with your real processors
     mut stream := audio_stream.AudioStream{
         ring_buffer: ring_buffer.new_ring_buffer(1024)
         channels: channels
@@ -46,7 +39,7 @@ pub fn fsv_cli_benchmark() {
         reverb: reverb_generator(sample_rate)
     }
 
-    // INFO: Generate a stereo test tone (440 Hz)
+    // Generate a stereo test tone (440 Hz)
     mut input := []f32{len: total_samples}
 
     for frame in 0 .. total_frames {
@@ -57,23 +50,31 @@ pub fn fsv_cli_benchmark() {
         input[frame * 2 + 1] = s
     }
 
-    // INFO: Warm-up (important for CPU frequency boost and caches)
+    // Real output buffer (prevents loop elimination)
+    mut output := []f32{len: total_samples}
+
+    // Warm-up
     for i in 0 .. 10000 {
-        _ := audio_stream.input_processor(input[i % total_samples], mut stream)
+        output[i % total_samples] =
+            audio_stream.input_processor(input[i % total_samples], mut stream)
     }
 
-    // INFO: Main benchmark
+    // ===== Main benchmark =====
     start := time.now()
 
-    mut sink := f32(0.0) // INFO: prevent optimization
-
     for i in 0 .. total_samples {
-        sink += audio_stream.input_processor(input[i], mut stream)
+        output[i] = audio_stream.input_processor(input[i], mut stream)
     }
 
     elapsed := time.since(start)
 
-    // INFO: Metrics
+    // Compute checksum AFTER timing (forces memory reads)
+    mut checksum := f64(0.0)
+    for v in output {
+        checksum += f64(v)
+    }
+
+    // Metrics
     elapsed_ns := elapsed.nanoseconds()
 
     ns_per_sample := f64(elapsed_ns) / f64(total_samples)
@@ -84,7 +85,6 @@ pub fn fsv_cli_benchmark() {
 
     rtf := audio_sec / processing_sec
 
-    // INFO: Estimated one-core CPU usage in real-time playback
     cpu_percent := (processing_sec / audio_sec) * 100.0
 
     println('=== Core metrics ===')
@@ -92,27 +92,26 @@ pub fn fsv_cli_benchmark() {
     println('Real-time factor  : ${rtf:.2f}x')
     println('Time per sample   : ${ns_per_sample:.2f} ns (${us_per_sample:.4f} µs)')
     println('Estimated CPU/core: ${cpu_percent:.2f}%')
-    println('Checksum          : ${sink:.6f}')
+    println('Checksum          : ${checksum:.6f}')
     println('')
 
-    // INFO: Buffer processing benchmark
+    // ===== Buffer processing benchmark =====
     println('=== Buffer processing time ===')
 
     buffer_sizes := [64, 128, 256, 512, 1024]
 
     for frames in buffer_sizes {
         samples_per_buffer := frames * channels
-
-        // Run many iterations for stable timing
         iterations := 2000
+
+        // Real buffer for this test
+        mut buffer_out := []f32{len: samples_per_buffer}
 
         buf_start := time.now()
 
-        mut local_sink := f32(0.0)
-
         for _ in 0 .. iterations {
             for i in 0 .. samples_per_buffer {
-                local_sink += audio_stream.input_processor(
+                buffer_out[i] = audio_stream.input_processor(
                     input[i % total_samples],
                     mut stream
                 )
@@ -121,22 +120,21 @@ pub fn fsv_cli_benchmark() {
 
         buf_elapsed := time.since(buf_start)
 
+        // Read buffer after timing to prevent store elimination
+        mut local_checksum := f64(0.0)
+        for v in buffer_out {
+            local_checksum += f64(v)
+        }
+
         avg_ns := f64(buf_elapsed.nanoseconds()) / f64(iterations)
         avg_us := avg_ns / 1000.0
 
-        // Real-time deadline for this buffer
         deadline_us := (f64(frames) / f64(sample_rate)) * 1_000_000.0
-
         usage := (avg_us / deadline_us) * 100.0
 
         println(
-            'Buffer ${frames:4d} frames : ${avg_us:8.2f} µs / ${deadline_us:8.2f} µs (${usage:5.1f}%)'
+            'Buffer ${frames:4d} frames : ${avg_us:8.2f} µs / ${deadline_us:8.2f} µs (${usage:5.1f}%) checksum=${local_checksum:.3f}'
         )
-
-        // prevent optimization
-        if local_sink == 123456.0 {
-            println('')
-        }
     }
 
     println('')

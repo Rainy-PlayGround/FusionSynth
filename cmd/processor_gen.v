@@ -4,7 +4,7 @@ import core.audio_stream.processor as audio_processor
 
 fn eq_generator(sample_rate int) audio_processor.Equalizer {
 	mut eq := audio_processor.Equalizer{
-		enable: true
+		enable: false
 		bands: [
 			audio_processor.RuntimeEQBand{
 				params: audio_processor.EQBand{
@@ -138,7 +138,7 @@ fn reverb_generator(sample_rate int) audio_processor.Reverb {
 
 fn compressor_generator(sample_rate int) audio_processor.Compressor {
 	return audio_processor.Compressor{
-		enable: true
+		enable: false
 		// Compress almost everything
 		threshold: 0.15
 		// Heavy compression
@@ -158,7 +158,7 @@ fn compressor_generator(sample_rate int) audio_processor.Compressor {
 
 fn limiter_generator() audio_processor.Limiter {
 	return audio_processor.Limiter{
-    enable: true
+    enable: false
     threshold: 0.95
     ceiling: 0.90
     attack: 0.05   // fast

@@ -1,6 +1,8 @@
 # Binaries for programs and plugins
 main
 FusionSynth
+fusionsynthv
+fusionsynth
 *.exe
 *.exe~
 *.so

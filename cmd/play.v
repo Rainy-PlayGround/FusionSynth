@@ -78,8 +78,6 @@ fn fsv_cli_play() {
 		if now - last_print_time >= time.second {
 			last_print_time = now
 		}
-
-		// time.sleep(10 * time.millisecond)
 	}
 
 	// INFO: Brief pause to let any last hardware samples clear
