@@ -9,6 +9,10 @@ pub:
 }
 
 pub const available_command = {
+	'benchmark': AvaliableCommand{
+		run_command: fsv_cli_benchmark
+		description: 'This command to see how fast the audio processing is.'
+	}
 	'play': AvaliableCommand{
 		run_command: fsv_cli_play
 		description: 'This command play aiff file.'

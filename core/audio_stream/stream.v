@@ -23,7 +23,7 @@ pub mut:
 
 const logger := log.Log{}
 
-fn input_processor(single_sample f32, mut s AudioStream) f32 {
+pub fn input_processor(single_sample f32, mut s AudioStream) f32 {
   mut out := single_sample
 
 	// INFO: Processor
