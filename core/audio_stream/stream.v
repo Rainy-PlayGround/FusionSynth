@@ -101,7 +101,7 @@ pub fn refill_stream(mut s AudioStream) {
 
 	// INFO: 1 sample = 2 bytes (16-bit)
 	samples_to_read := if available > 4096 { 4096 } else { available }
-	bytes_to_read := samples_to_read * 4
+	bytes_to_read := samples_to_read * 2
 
 	mut raw := []u8{len: bytes_to_read}
 	bytes_read := s.file.read(mut raw) or {
@@ -115,15 +115,10 @@ pub fn refill_stream(mut s AudioStream) {
 	}
 
 	// INFO: Decode PCM16 bytes directly into an f32 slice
-	mut decoded := []f32{cap: bytes_read / 4}
-
-	for i := 0; i < bytes_read - 3; i += 4 {
-		bits := u32(raw[i])
-			| (u32(raw[i + 1]) << 8)
-			| (u32(raw[i + 2]) << 16)
-			| (u32(raw[i + 3]) << 24)
-
-		decoded << unsafe { *(&f32(&bits)) }
+	mut decoded := []f32{cap: bytes_read / 2}
+	for i := 0; i < bytes_read - 1; i += 2 {
+		sample_16 := i16(u16(raw[i]) | (u16(raw[i + 1]) << 8))
+		decoded << f32(sample_16) / 32768.0
 	}
 
 
