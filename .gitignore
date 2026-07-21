@@ -31,3 +31,5 @@ modules/
 *.ogg
 *.wav
 rnd_fsvb/
+*.fsvoice
+extracted_samples/

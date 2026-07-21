@@ -13,8 +13,6 @@ pub mut:
 	channels    int
 	sample_rate int
 	eof         bool
-  fade_out_remaining int
-  fade_out_total int
 	total_read  u64 // INFO: Tracks overall progress for timing calculations
 	volume 			processor.Volume
 	eq					processor.Equalizer
@@ -48,12 +46,6 @@ pub fn input_processor(single_sample f32, mut s AudioStream) f32 {
 	if s.limiter.enable {
 		out = s.limiter.process(out)
 	}
-
-	// if s.fade_out_remaining > 0 {
-	// 	gain := f32(s.fade_out_remaining) / f32(s.fade_out_total)
-	// 	out *= gain
-	// 	s.fade_out_remaining--
-	// }
 
   return out
 }
@@ -114,13 +106,11 @@ pub fn refill_stream(mut s AudioStream) {
 	mut raw := []u8{len: bytes_to_read}
 	bytes_read := s.file.read(mut raw) or {
 		s.eof = true
-		s.fade_out_remaining = s.fade_out_total
 		return
 	}
 
 	if bytes_read <= 0 {
 		s.eof = true
-		s.fade_out_remaining = s.fade_out_total
 		return
 	}
 
@@ -130,7 +120,6 @@ pub fn refill_stream(mut s AudioStream) {
 		sample_16 := i16(u16(raw[i]) | (u16(raw[i + 1]) << 8))
 		decoded << f32(sample_16) / 32768.0
 	}
-
 
 	written := s.ring_buffer.write(decoded)
 	s.total_read += u64(written)

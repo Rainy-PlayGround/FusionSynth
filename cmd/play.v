@@ -3,7 +3,6 @@ module fsv_cmd
 import sokol.audio
 import time
 import os
-import log
 
 import core
 import core.audio_stream
