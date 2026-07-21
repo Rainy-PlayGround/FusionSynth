@@ -15,7 +15,11 @@ pub const available_command = {
 	}
 	'play': AvaliableCommand{
 		run_command: fsv_cli_play
-		description: 'This command play aiff file.'
+		description: 'This command play wav file.'
+	}
+	'seq_play': AvaliableCommand{
+		run_command: fsv_cli_seq_play
+		description: 'This command play a sequence of wav file.'
 	}
 	'help': AvaliableCommand{
 		run_command: fsv_cli_help

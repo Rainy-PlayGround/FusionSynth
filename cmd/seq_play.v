@@ -9,14 +9,7 @@ import core
 import core.audio_stream
 import core.ring_buffer
 
-fn fsv_cli_play() {
-	if os.args.len != 3 {
-		eprintln('usage: v run play_wav.v <wavfile.wav>')
-		exit(1)
-	}
-
-	file_path := os.args[2]
-
+fn file_play(file_path string) {
 	if !os.exists(file_path) {
 		panic('File missing or not found!')
 	}
@@ -38,6 +31,8 @@ fn fsv_cli_play() {
 		channels: wav.channels
 		sample_rate: wav.sample_rate
 		eof: false
+		fade_out_total: wav.sample_rate / 100 // 10 ms
+		fade_out_remaining: 0
 		total_read: 0
 		volume: volume_generator()
 		eq: eq_generator(wav.sample_rate)
@@ -76,6 +71,7 @@ fn fsv_cli_play() {
 		if now - last_print_time >= time.second {
 			last_print_time = now
 		}
+		time.sleep(10 * time.millisecond)
 	}
 
 	// INFO: Brief pause to let any last hardware samples clear
@@ -84,4 +80,17 @@ fn fsv_cli_play() {
 	audio.shutdown()
 	stream.file.close()
 	logger.info('Done!')
+}
+
+fn fsv_cli_seq_play() {
+	if os.args.len < 3 {
+		eprintln('usage: v run play <list of wav>')
+		exit(1)
+	}
+
+	file_list := os.args[2..]
+
+	for i, v in file_list {
+		file_play("rnd_fsvb/" + v)
+	}
 }

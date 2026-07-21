@@ -120,7 +120,7 @@ fn eq_generator(sample_rate int) audio_processor.Equalizer {
 
 fn reverb_generator(sample_rate int) audio_processor.Reverb {
 	return audio_processor.Reverb{
-		enable: true
+		enable: false
 		mix: 0.75      // much wetter
 		gain: 0.6      // drive the reverb harder
 		combs: [
