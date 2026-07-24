@@ -1,4 +1,4 @@
-module fsv_cmd
+module cmd
 
 import sokol.audio
 import time
@@ -27,11 +27,13 @@ fn fsv_cli_play_phoneme() {
 		sample_rate: int(pdb_load.sample_rate)
 		eof: false
 		total_read: 0
-		volume: volume_generator()
-		eq: eq_generator(int(pdb_load.sample_rate))
-		limiter: limiter_generator()
-		compressor: compressor_generator(int(pdb_load.sample_rate))
-		reverb: reverb_generator(int(pdb_load.sample_rate))
+		chain_processor: [
+			volume_generator(),
+			eq_generator(int(pdb_load.sample_rate)),
+			reverb_generator(int(pdb_load.sample_rate)),
+			compressor_generator(int(pdb_load.sample_rate)),
+			limiter_generator(),
+		]
 	}
 
 	audio.setup(

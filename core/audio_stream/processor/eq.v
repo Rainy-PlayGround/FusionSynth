@@ -32,7 +32,7 @@ pub mut:
 
 pub struct Equalizer {
 pub mut:
-  enable bool
+	enable bool
   bands []RuntimeEQBand
 }
 
@@ -54,10 +54,10 @@ pub fn (mut filter Biquad) process(sample f32) f32 {
 	return out
 }
 
-pub fn (mut eq Equalizer) process(sample f32) f32 {
+pub fn equalizer_processor(sample f32, mut config Equalizer) f32 {
 	mut out := sample
 
-	for mut band in eq.bands {
+	for mut band in config.bands {
 		out = band.filter.process(out)
 	}
 

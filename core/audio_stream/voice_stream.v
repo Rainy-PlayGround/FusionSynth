@@ -17,35 +17,30 @@ pub mut:
 	eof         	 bool
 	stream_end		 bool
 	total_read  	 u64 // INFO: Tracks overall progress for timing calculations
-	volume 				 processor.Volume
-	eq						 processor.Equalizer
-	limiter     	 processor.Limiter
-	compressor  	 processor.Compressor
-	reverb 				 processor.Reverb
+	chain_processor []processor.ProcessorType
 }
 
 pub fn voice_input_processor(single_sample f32, mut s VoiceAudioStream) f32 {
   mut out := single_sample
 
-	// INFO: Processor
-	if s.volume.enable {
-		out = s.volume.process(out)
-	}
-
-	if s.eq.enable {
-		out = s.eq.process(out)
-	}
-
-	if s.compressor.enable {
-		out = s.compressor.process(out)
-	}
-
-	if s.reverb.enable {
-		out = s.reverb.process(out)
-	}
-
-	if s.limiter.enable {
-		out = s.limiter.process(out)
+	for mut child_processor in s.chain_processor {
+		match child_processor {
+			processor.Volume {
+				out = processor.volume_processor(out, child_processor)
+			}
+			processor.Equalizer {
+				out = processor.equalizer_processor(out, mut child_processor)
+			}
+			processor.Reverb {
+				out = processor.reverb_processor(out, mut child_processor)
+			}
+			processor.Compressor {
+				out = processor.compressor_processor(out, mut child_processor)
+			}
+			processor.Limiter {
+				out = processor.limiter_processor(out, mut child_processor)
+			}
+		}
 	}
 
   return out
@@ -82,7 +77,6 @@ pub fn voice_stream_callback(buffer &f32, num_frames int, num_channels int, user
 		mem_mb := f64(used_bytes) / 1024.0 / 1024.0
 
 		logger.debug("[Phoneme Mode] Sample Rate: ${s.sample_rate} Hz, Channels: ${s.channels}")
-		logger.debug("[Phoneme Mode] Volume: ${s.volume.enable}, EQ: ${s.eq.enable}, Compressor ${s.compressor.enable}, Reverb ${s.reverb.enable}, Limiter: ${s.limiter.enable}")
 		logger.debug("[Phoneme Mode] Mem: ${mem_mb:.2f} MB, Sample Block: ${debug_sample[0..5]} ")
 	}
 }

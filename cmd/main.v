@@ -1,4 +1,4 @@
-module fsv_cmd
+module cmd
 
 pub struct AvaliableCommand {
 pub:

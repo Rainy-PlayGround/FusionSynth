@@ -1,4 +1,4 @@
-module fsv_cmd
+module cmd
 
 import utils as fsv_utils
 

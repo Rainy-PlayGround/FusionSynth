@@ -16,7 +16,7 @@ pub enum DetectorMode {
 
 pub struct Compressor {
 pub mut:
-  enable 		bool
+  enable bool
   threshold f32 // linear (0.0~1.0)
   ratio     f32
 	attack  	f32
@@ -68,39 +68,35 @@ fn (mut c Compressor) detect(sample f32) f32 {
   }
 }
 
-pub fn (mut c Compressor) process(sample f32) f32 {
-  if !c.enable {
-    return sample
-  }
-
-  level := c.detect(sample)
+pub fn compressor_processor(sample f32, mut config Compressor) f32 {
+  level := config.detect(sample)
 
   // INFO: Envelope follower
-  if level > c.envelope {
-    c.envelope += (level - c.envelope) * c.attack
+  if level > config.envelope {
+    config.envelope += (level - config.envelope) * config.attack
   } else {
-    c.envelope += (level - c.envelope) * c.release
+    config.envelope += (level - config.envelope) * config.release
   }
 
   // INFO: Gain computer
   mut target_gain := f32(1.0)
-  if c.envelope > c.threshold {
-    over := c.envelope - c.threshold
-		ratio := if c.ratio < 1.0 {
+  if config.envelope > config.threshold {
+    over := config.envelope - config.threshold
+		ratio := if config.ratio < 1.0 {
 			f32(1.0)
 		} else {
-			c.ratio
+			config.ratio
 		}
-    compressed := c.threshold + over / ratio
-    target_gain = compressed / c.envelope
+    compressed := config.threshold + over / ratio
+    target_gain = compressed / config.envelope
   }
 
   // INFO: Smooth gain
-  if target_gain < c.gain {
-    c.gain += (target_gain - c.gain) * c.attack
+  if target_gain < config.gain {
+    config.gain += (target_gain - config.gain) * config.attack
   } else {
-    c.gain += (target_gain - c.gain) * c.release
+    config.gain += (target_gain - config.gain) * config.release
   }
 
-  return sample * c.gain
+  return sample * config.gain
 }

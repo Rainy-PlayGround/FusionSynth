@@ -2,10 +2,10 @@ module processor
 
 pub struct Volume {
 pub mut:
-	enable bool
+  enable bool
   amount f32
 }
 
-pub fn (mut p Volume) process(single_sample f32) f32 {
-  return single_sample * p.amount
+pub fn volume_processor(single_sample f32, config Volume) f32 {
+  return single_sample * config.amount
 }

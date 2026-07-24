@@ -1,4 +1,4 @@
-module fsv_cmd
+module cmd
 
 import time
 import math
@@ -31,12 +31,13 @@ fn fsv_cli_benchmark() {
         ring_buffer: ring_buffer.new_ring_buffer(1024)
         channels: channels
         sample_rate: sample_rate
-
-        volume: volume_generator()
-        eq: eq_generator(sample_rate)
-        compressor: compressor_generator(sample_rate)
-        limiter: limiter_generator()
-        reverb: reverb_generator(sample_rate)
+		chain_processor: [
+			volume_generator(),
+			eq_generator(sample_rate),
+			reverb_generator(sample_rate),
+			compressor_generator(sample_rate),
+			limiter_generator(),
+		]
     }
 
     // Generate a stereo test tone (440 Hz)

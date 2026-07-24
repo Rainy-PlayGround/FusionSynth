@@ -1,4 +1,4 @@
-module fsv_cmd
+module cmd
 
 import sokol.audio
 import time
@@ -38,11 +38,13 @@ fn fsv_cli_play() {
 		sample_rate: wav.sample_rate
 		eof: false
 		total_read: 0
-		volume: volume_generator()
-		eq: eq_generator(wav.sample_rate)
-		limiter: limiter_generator()
-		compressor: compressor_generator(wav.sample_rate)
-		reverb: reverb_generator(wav.sample_rate)
+		chain_processor: [
+			volume_generator(),
+			eq_generator(wav.sample_rate),
+			reverb_generator(wav.sample_rate),
+			compressor_generator(wav.sample_rate),
+			limiter_generator(),
+		]
 	}
 
 	// INFO: Preload the ring buffer before we start playback
