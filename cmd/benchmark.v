@@ -10,7 +10,7 @@ const benchmark_duration_sec = 30
 const benchmark_sample_rate = 48000
 const benchmark_channels = 2
 
-pub fn fsv_cli_benchmark() {
+fn fsv_cli_benchmark() {
     sample_rate := benchmark_sample_rate
     channels := benchmark_channels
     duration_sec := benchmark_duration_sec

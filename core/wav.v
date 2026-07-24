@@ -12,7 +12,7 @@ pub:
 	data_size    int
 }
 
-pub fn parse_wav(file_path string) !WavHeader {
+pub fn wav_parse(file_path string) !WavHeader {
 	mut f := os.open(file_path) or { return err }
 	defer { f.close() }
 

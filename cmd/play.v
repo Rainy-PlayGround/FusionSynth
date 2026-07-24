@@ -10,7 +10,7 @@ import core.ring_buffer
 
 fn fsv_cli_play() {
 	if os.args.len != 3 {
-		eprintln('usage: v run play_wav.v <wavfile.wav>')
+		eprintln('usage: v run play <wavfile.wav>')
 		exit(1)
 	}
 
@@ -20,7 +20,7 @@ fn fsv_cli_play() {
 		panic('File missing or not found!')
 	}
 
-	wav := core.parse_wav(file_path) or { panic('Failed to parse WAV file: ${err}') }
+	wav := core.wav_parse(file_path) or { panic('Failed to parse WAV file: ${err}') }
 
 	logger.info('[cmd/play.v] Loaded: ${file_path}')
 	logger.info('[cmd/play.v] Sample Rate: ${wav.sample_rate} Hz')
