@@ -2,7 +2,7 @@ module voice
 
 import os
 
-pub const magic = 'DLFSQPDB'
+pub const magic = 'DLFSQVDB' // DeepLunaria FusionSynth Quick Voice Database
 pub const version = u32(1)
 
 pub struct VoiceBank {

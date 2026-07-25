@@ -16,7 +16,7 @@ fn fsv_cli_create_phoneme_database() {
     new_file_list[i] = 'rnd_fsvb/' + v + ".wav"
   }
 
-  voice.create_phoneme_database('teto.fsvoice', new_file_list) or {
+  voice.create_phoneme_database('teto.fsqv', new_file_list) or {
     eprintln('failed to create bank: ${err}')
     return
   }

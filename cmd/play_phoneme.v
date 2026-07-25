@@ -8,12 +8,12 @@ import core.ring_buffer
 import voice
 
 fn fsv_cli_play_phoneme() {
-  mut pdb_load := voice.open_phoneme_database("teto.fsvoice") or {
+  mut pdb_load := voice.open_phoneme_database("teto.fsqv") or {
     println('Failed to open bank: ${err}')
     return
   }
 
-	logger.info('[cmd/play_voice.v] Phoneme Database Loaded: teto.fsvoice')
+	logger.info('[cmd/play_voice.v] Phoneme Database Loaded: teto.fsqv')
 	logger.info('[cmd/play_voice.v] Phoneme Database Sample Rate: ${pdb_load.sample_rate} Hz')
 	logger.info('[cmd/play_voice.v] Phoneme Database Channels: ${pdb_load.channels}')
 	logger.info('[cmd/play_voice.v] Phoneme Database Format: ${pdb_load.bits_per_sample}-bit PCM')

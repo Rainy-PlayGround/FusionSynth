@@ -3,7 +3,7 @@ module cmd
 import voice
 
 fn fsv_cli_read_phoneme_database() {
-  mut phoneme_database_load := voice.open_phoneme_database("teto.fsvoice") or {
+  mut phoneme_database_load := voice.open_phoneme_database("teto.fsqv") or {
     println('Failed to open bank: ${err}')
     return
   }
