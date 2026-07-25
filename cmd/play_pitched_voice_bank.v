@@ -7,38 +7,32 @@ import core.audio_stream
 import core.ring_buffer
 import voice
 
-fn fsv_cli_play_phoneme() {
-  mut pdb_load := voice.open_phoneme_database("teto.fsqv") or {
+fn fsv_cli_play_pitched_voice_bank() {
+  mut qvb := voice.open_voice_bank("teto.fsqv") or {
     println('Failed to open bank: ${err}')
     return
   }
 
 	logger.info('[cmd/play_voice.v] Phoneme Database Loaded: teto.fsqv')
-	logger.info('[cmd/play_voice.v] Phoneme Database Sample Rate: ${pdb_load.sample_rate} Hz')
-	logger.info('[cmd/play_voice.v] Phoneme Database Channels: ${pdb_load.channels}')
-	logger.info('[cmd/play_voice.v] Phoneme Database Format: ${pdb_load.bits_per_sample}-bit PCM')
+	logger.info('[cmd/play_voice.v] Phoneme Database Sample Rate: ${qvb.sample_rate} Hz')
+	logger.info('[cmd/play_voice.v] Phoneme Database Channels: ${qvb.channels}')
+	logger.info('[cmd/play_voice.v] Phoneme Database Format: ${qvb.bits_per_sample}-bit PCM')
 
 	mut stream := audio_stream.VoiceAudioStream{
-		phoneme: &pdb_load
+		phoneme: &qvb
 		phoneme_name: ''
 		phoneme_offset: u64(0)
 		ring_buffer: ring_buffer.new_ring_buffer(65536)
-		channels: int(pdb_load.channels)
-		sample_rate: int(pdb_load.sample_rate)
+		channels: int(qvb.channels)
+		sample_rate: int(qvb.sample_rate)
 		eof: false
 		total_read: 0
-		chain_processor: [
-			volume_generator(),
-			eq_generator(int(pdb_load.sample_rate)),
-			reverb_generator(int(pdb_load.sample_rate)),
-			compressor_generator(int(pdb_load.sample_rate)),
-			limiter_generator(),
-		]
+		chain_processor: []
 	}
 
 	audio.setup(
-		sample_rate: int(pdb_load.sample_rate)
-		num_channels: int(pdb_load.channels)
+		sample_rate: int(qvb.sample_rate)
+		num_channels: int(qvb.channels)
 		stream_userdata_cb: audio_stream.voice_stream_callback
 		user_data: voidptr(&stream)
 	)
@@ -77,6 +71,6 @@ fn fsv_cli_play_phoneme() {
 	logger.info('Sequence finished!')
 
 	audio.shutdown()
-	pdb_load.close()
+	qvb.close()
 	logger.info('Done!')
 }

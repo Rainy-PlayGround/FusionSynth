@@ -3,9 +3,9 @@ module cmd
 import os
 import voice
 
-fn fsv_cli_create_phoneme_database() {
+fn fsv_cli_create_voice_bank() {
   if os.args.len < 3 {
-    eprintln('usage: fusionsynth create-phoneme-database <phon1> <phon2> ...')
+    eprintln('usage: fusionsynth create-voice-bank <phon1> <phon2> ...')
     return
   }
 
@@ -16,7 +16,7 @@ fn fsv_cli_create_phoneme_database() {
     new_file_list[i] = 'rnd_fsvb/' + v + ".wav"
   }
 
-  voice.create_phoneme_database('teto.fsqv', new_file_list) or {
+  voice.create_voice_bank('teto.fsqv', new_file_list) or {
     eprintln('failed to create bank: ${err}')
     return
   }

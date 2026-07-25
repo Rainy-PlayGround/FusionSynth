@@ -3,7 +3,7 @@ module voice
 import os
 import encoding.binary
 
-pub fn open_phoneme_database(path string) !VoiceBank {
+pub fn open_voice_bank(path string) !VoiceBank {
   mut f := os.open(path)!
 
   mut magic_buf := []u8{len: 8}

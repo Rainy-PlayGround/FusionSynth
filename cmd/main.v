@@ -17,17 +17,17 @@ pub const available_command = {
 		run_command: fsv_cli_play
 		description: 'This command play wav file.'
 	},
-	'create-phoneme-database': AvaliableCommand{
-		run_command: fsv_cli_create_phoneme_database
-		description: 'This command create a phoneme database from bunch of wav file'
+	'create-voice-bank': AvaliableCommand{
+		run_command: fsv_cli_create_voice_bank
+		description: 'This command create a voice bank from bunch of wav file'
 	},
-	'read-phoneme-database': AvaliableCommand{
-		run_command: fsv_cli_read_phoneme_database
-		description: 'This command read phoneme database'
+	'read-voice-bank': AvaliableCommand{
+		run_command: fsv_cli_read_voice_bank
+		description: 'This command read voice bank'
 	},
-	'play-phoneme-test': AvaliableCommand{
-		run_command: fsv_cli_play_phoneme
-		description: 'This command play phoneme test'
+	'play-voice-bank': AvaliableCommand{
+		run_command: fsv_cli_play_voice_bank
+		description: 'This command play voice test'
 	},
 	'help': AvaliableCommand{
 		run_command: fsv_cli_help

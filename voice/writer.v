@@ -3,7 +3,7 @@ module voice
 import os
 import core
 
-pub fn create_phoneme_database(output string, files []string) ! {
+pub fn create_voice_bank(output string, files []string) ! {
   if files.len == 0 {
     return error('Cannot create database: no input files provided')
   }
