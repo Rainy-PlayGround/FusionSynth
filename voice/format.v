@@ -1,6 +1,9 @@
 module voice
 
 import os
+import log
+
+const logger = log.Log{}
 
 pub const magic = 'DLFSQVDB' // DeepLunaria FusionSynth Quick Voice Database
 pub const version = u32(1)

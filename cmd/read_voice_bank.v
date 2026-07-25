@@ -11,16 +11,13 @@ fn fsv_cli_read_voice_bank() {
     voice_bank_load.close()
   }
 
-  println(voice_bank_load)
-
   println('Bank loaded successfully! Entries count: ${voice_bank_load.entries.len}')
   for name, entry in voice_bank_load.entries {
     println(' - ${name} (${entry.size} bytes at offset ${entry.offset})')
   }
 
-  wav_data := voice_bank_load.read_entry('a') or {
-    println('Entry not found!')
-    return
+  println('Voice bank table:')
+  for phoneme_name, _ in voice_bank_load.entries {
+    print('${phoneme_name}     ')
   }
-  println('Read ${wav_data.len} bytes for a')
 }

@@ -8,15 +8,96 @@ import core.ring_buffer
 import voice
 
 fn fsv_cli_play_voice_bank() {
+	mut phonemes_to_play := [
+		// Basic vowels (あ-row)
+		'あ', 'い', 'う', 'え', 'お',
+
+		// K-row
+		'か', 'き', 'く', 'け', 'こ',
+
+		// S-row
+		'さ', 'し', 'す', 'せ', 'そ',
+
+		// T-row
+		'た', 'ち', 'つ', 'て', 'と',
+
+		// N-row
+		'な', 'に', 'ぬ', 'ね', 'の',
+
+		// H-row
+		'は', 'ひ', 'ふ', 'へ', 'ほ',
+
+		// M-row
+		'ま', 'み', 'む', 'め', 'も',
+
+		// Y-row
+		'や', 'ゆ', 'よ',
+
+		// R-row
+		'ら', 'り', 'る', 'れ', 'ろ',
+
+		// W-row
+		'わ',
+
+		// Voiced consonants
+		'が', 'ぎ', 'ぐ', 'げ', 'ご',
+		'ざ', 'じ', 'ず', 'ぜ', 'ぞ',
+		'だ', 'で', 'ど',
+		'ば', 'び', 'ぶ', 'べ', 'ぼ',
+		'ぱ', 'ぴ', 'ぷ', 'ぺ', 'ぽ',
+
+		// Yōon (contracted sounds)
+		'きゃ', 'きゅ', 'きょ',
+		'ぎゃ', 'ぎゅ', 'ぎょ',
+		'しゃ', 'しゅ', 'しょ',
+		'じゃ', 'じゅ', 'じょ',
+		'ちゃ', 'ちゅ', 'ちょ',
+		'にゃ', 'にゅ', 'にょ',
+		'ひゃ', 'ひゅ', 'ひょ',
+		'びゃ', 'びゅ', 'びょ',
+		'ぴゃ', 'ぴゅ', 'ぴょ',
+		'みゃ', 'みゅ', 'みょ',
+		'りゃ', 'りゅ', 'りょ',
+
+		// Extended foreign / combined sounds
+		'いぇ',
+		'うぃ', 'うぇ', 'うぉ',
+		'きぇ', 'ぎぇ',
+		'しぇ', 'じぇ',
+		'ちぇ',
+		'にぇ',
+		'ひぇ',
+		'びぇ', 'ぴぇ',
+		'みぇ',
+		'りぇ',
+
+		// Foreign consonant combinations
+		'てぃ', 'でぃ',
+		'とぅ', 'どぅ',
+		'てゅ', 'でゅ',
+		'つぁ', 'つぃ', 'つぇ', 'つぉ',
+
+		// F and V sounds (mainly loanwords)
+		'ふぁ', 'ふぃ', 'ふぇ', 'ふぉ',
+		'ヴぁ', 'ヴぃ', 'ヴぇ', 'ヴぉ',
+
+		// Special sounds
+		'すぃ',
+		'ずぃ',
+
+		// Moraic nasal
+		'ん',
+	]
+
   mut qvb := voice.open_voice_bank("teto.fsqv") or {
     println('Failed to open bank: ${err}')
     return
   }
 
-	logger.info('[cmd/play_voice.v] Phoneme Database Loaded: teto.fsqv')
-	logger.info('[cmd/play_voice.v] Phoneme Database Sample Rate: ${qvb.sample_rate} Hz')
-	logger.info('[cmd/play_voice.v] Phoneme Database Channels: ${qvb.channels}')
-	logger.info('[cmd/play_voice.v] Phoneme Database Format: ${qvb.bits_per_sample}-bit PCM')
+	logger.info('[play_voice_bank] Phoneme Database Loaded: teto.fsqv')
+	logger.info('[play_voice_bank] Phoneme Database Sample Rate: ${qvb.sample_rate} Hz')
+	logger.info('[play_voice_bank] Phoneme Database Channels: ${qvb.channels}')
+	logger.info('[play_voice_bank] Phoneme Database Format: ${qvb.bits_per_sample}-bit PCM')
 
 	mut stream := audio_stream.VoiceAudioStream{
 		phoneme: &qvb
@@ -37,14 +118,11 @@ fn fsv_cli_play_voice_bank() {
 		user_data: voidptr(&stream)
 	)
 
-	mut phonemes_to_play := ['a', 'i', 'u', 'ye']
-
-	logger.info('[cmd/play.v] Playing voice...')
-
 	stream.phoneme_name = phonemes_to_play.first()
 	stream.phoneme_offset = 0
 	stream.eof = false
   phonemes_to_play.delete(0)
+	logger.info('[play_voice_bank] Add phoneme name to play queue: ' + stream.phoneme_name)
 
 	audio_stream.phoneme_refill_stream(mut stream)
 	for {
@@ -59,6 +137,7 @@ fn fsv_cli_play_voice_bank() {
 			stream.phoneme_offset = 0
 			stream.eof = false
 			phonemes_to_play.delete(0)
+			logger.info('[play_voice_bank] Add phoneme name to play queue: ' + stream.phoneme_name)
 		}
 
 		if stream.eof && buffer_size == 0 && phonemes_to_play.len == 0 {

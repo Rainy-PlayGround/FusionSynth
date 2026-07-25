@@ -67,15 +67,6 @@ pub fn voice_stream_callback(buffer &f32, num_frames int, num_channels int, user
 			buffer[i] = 0.0
 			debug_sample[i] = buffer[i]
 		}
-
-		used_bytes := runtime.used_memory() or {
-			eprintln('Failed to get memory usage: ${err}')
-			0
-		}
-		mem_mb := f64(used_bytes) / 1024.0 / 1024.0
-
-		logger.debug("[Phoneme Mode] Sample Rate: ${s.sample_rate} Hz, Channels: ${s.channels}")
-		logger.debug("[Phoneme Mode] Mem: ${mem_mb:.2f} MB, Sample Block: ${debug_sample[0..5]} ")
 	}
 }
 

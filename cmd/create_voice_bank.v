@@ -4,16 +4,20 @@ import os
 import voice
 
 fn fsv_cli_create_voice_bank() {
-  if os.args.len < 3 {
-    eprintln('usage: fusionsynth create-voice-bank <phon1> <phon2> ...')
+  dir_path := './rnd_fsvb'
+  
+  files := os.ls(dir_path) or {
+    eprintln('Failed to read directory: err')
     return
   }
 
-  file_list := os.args[2..]
+  mut new_file_list := []string{}
 
-  mut new_file_list := []string{len: file_list.len}
-  for i, v in file_list {
-    new_file_list[i] = 'rnd_fsvb/' + v + ".wav"
+  for file in files {
+    path := os.join_path(dir_path, file)
+    if os.is_file(path) && file.ends_with('.wav') {
+      new_file_list << path
+    }
   }
 
   voice.create_voice_bank('teto.fsqv', new_file_list) or {

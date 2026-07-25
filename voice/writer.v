@@ -18,11 +18,16 @@ pub fn create_voice_bank(output string, files []string) ! {
 
   for path in files {
     mut name := os.file_name(path)
-    name = name[..name.len - 4]
+    if name.starts_with('_') {
+      name = name[1..name.len - 4]
+    } else {
+      name = name[..name.len - 4]
+    }
+
     entries << VoiceBankEntry{
       name: name
     }
-    table_size += 20 + name.len // 2B len + 2B reserved + 8B offset + 8B size = 20B
+    table_size += 20 + name.len
   }
 
   // Header format (32 bytes total):
@@ -41,6 +46,7 @@ pub fn create_voice_bank(output string, files []string) ! {
 
   // Write raw PCM data only
   for i, path in files {
+    logger.info('Now building voice for ${path}')
     wav_hdr := core.wav_parse(path)!
 
     // Grab audio attributes from the first file
@@ -48,6 +54,18 @@ pub fn create_voice_bank(output string, files []string) ! {
       global_sample_rate = u32(wav_hdr.sample_rate)
       global_channels = u16(wav_hdr.channels)
       global_bits_per_sample = u16(wav_hdr.bits_per_sec)
+    }
+
+    if wav_hdr.sample_rate != global_sample_rate {
+      return error('Insufficient sample rate')
+    }
+
+    if wav_hdr.channels != global_channels {
+      return error('Insufficient channel')
+    }
+
+    if wav_hdr.bits_per_sec != global_bits_per_sample {
+      return error('Insufficient bit per sample')
     }
 
     mut wav_file := os.open(path)!

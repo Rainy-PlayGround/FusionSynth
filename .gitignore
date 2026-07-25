@@ -35,3 +35,4 @@ rnd_fsvb/
 extracted_samples/
 test_bin
 test.v
+.gitignore
