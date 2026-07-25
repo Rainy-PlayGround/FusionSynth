@@ -1,7 +1,5 @@
 module audio_stream
 
-import runtime
-
 import core.ring_buffer
 import voice
 import processor

@@ -3,6 +3,31 @@ module voice
 import os
 import core
 
+fn print_progress(current int, total int, prefix string) {
+	width := 40
+	ratio := f64(current) / f64(total)
+	filled := int(ratio * width)
+
+	mut bar := '['
+
+	for i := 0; i < width; i++ {
+		if i < filled {
+			bar += '#'
+		} else {
+			bar += '-'
+		}
+	}
+	bar += ']'
+
+	percent := int(ratio * 100)
+
+	print('\r${prefix} ${bar} ${percent}% (${current}/${total})')
+
+	if current == total {
+		println('')
+	}
+}
+
 pub fn create_voice_bank(output string, files []string) ! {
   if files.len == 0 {
     return error('Cannot create database: no input files provided')
@@ -44,9 +69,13 @@ pub fn create_voice_bank(output string, files []string) ! {
   mut global_channels := u16(0)
   mut global_bits_per_sample := u16(0)
 
-  // Write raw PCM data only
+  mut analysis_offset := data_start
+
+  total_files := files.len
+
   for i, path in files {
-    logger.info('Now building voice for ${path}')
+    print_progress(i, total_files, 'Analyzing and Building voice')
+
     wav_hdr := core.wav_parse(path)!
 
     // Grab audio attributes from the first file
@@ -57,30 +86,57 @@ pub fn create_voice_bank(output string, files []string) ! {
     }
 
     if wav_hdr.sample_rate != global_sample_rate {
-      return error('Insufficient sample rate')
+      return error("Insufficient sample rate for file: " + path)
     }
 
     if wav_hdr.channels != global_channels {
-      return error('Insufficient channel')
+      return error("Insufficient channels for file: " + path)
     }
 
     if wav_hdr.bits_per_sec != global_bits_per_sample {
-      return error('Insufficient bit per sample')
+      return error("Insufficient bits per sec for file: " + path)
     }
 
     mut wav_file := os.open(path)!
-    wav_file.seek(i64(wav_hdr.data_offset), .start)!
-    mut pcm_bytes := []u8{len: wav_hdr.data_size}
-    wav_file.read(mut pcm_bytes)!
-    wav_file.close()
+    defer {
+      wav_file.close()
+    }
 
+    wav_file.seek(
+      i64(wav_hdr.data_offset),
+      .start
+    )!
+
+    mut pcm := []u8{len: wav_hdr.data_size}
+    wav_file.read(mut pcm)!
+
+    analysis := analyze_voice(
+      pcm,
+      wav_hdr.sample_rate
+    )!
+
+    // write analysis
+    out.seek(i64(analysis_offset),.start)!
+    out.write_le(analysis.root_frequency)!
+    out.write([analysis.root_note])!
+    out.write([analysis.confidence])!
+    out.write_le(analysis.pitch_mark_count)!
+
+    for mark in analysis.pitch_marks {
+      out.write_le(mark)!
+    }
+
+    entries[i].analysis_offset = analysis_offset
+    entries[i].analysis_size =
+      u64(10 + analysis.pitch_marks.len * 4)
+    analysis_offset += entries[i].analysis_size
+
+    // PCM
     out.seek(i64(current_offset), .start)!
-    out.write(pcm_bytes)!
-
+    out.write(pcm)!
     entries[i].offset = current_offset
-    entries[i].size = u64(pcm_bytes.len)
-
-    current_offset += u64(pcm_bytes.len)
+    entries[i].size = u64(pcm.len)
+    current_offset += u64(pcm.len)
   }
 
   // Write index table

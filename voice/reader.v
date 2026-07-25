@@ -116,3 +116,56 @@ pub fn (mut b VoiceBank) read_entry_at(mut array_data []u8, name string, offset 
 	bytes_read := b.file.read(mut read_slice)!
 	return bytes_read
 }
+
+pub fn (mut b VoiceBank) read_analysis(name string) !VoiceAnalysis {
+  entry := b.entries[name] or {
+    return error('Entry not found')
+  }
+
+  b.file.seek(
+    i64(entry.analysis_offset),
+    .start
+  )!
+
+  mut f32_buf := []u8{len:4}
+  mut u32_buf := []u8{len:4}
+
+
+  b.file.read(mut f32_buf)!
+
+  bits := binary.little_endian_u32(f32_buf)
+  root_frequency := unsafe {
+    *(&f32(&bits))
+  }
+
+  mut byte_data := []u8{len:1}
+
+  b.file.read(mut byte_data)!
+
+  root_note := byte_data[0]
+
+
+  b.file.read(mut byte_data)!
+
+  confidence := byte_data[0]
+
+
+  b.file.read(mut u32_buf)!
+
+  count := binary.little_endian_u32(u32_buf)
+
+  mut marks := []u32{}
+
+  for _ in 0 .. count {
+    b.file.read(mut u32_buf)!
+    marks << binary.little_endian_u32(u32_buf)
+  }
+
+  return VoiceAnalysis{
+    root_frequency: root_frequency
+    root_note: root_note
+    confidence: confidence
+    pitch_mark_count: count
+    pitch_marks: marks
+  }
+}

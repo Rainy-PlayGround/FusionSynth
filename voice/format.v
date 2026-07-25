@@ -21,7 +21,11 @@ pub mut:
 
 pub struct VoiceBankEntry {
 pub mut:
-  name   string
+  name string
+
   offset u64
-  size   u64
+  size u64
+
+  analysis_offset u64
+  analysis_size u64
 }

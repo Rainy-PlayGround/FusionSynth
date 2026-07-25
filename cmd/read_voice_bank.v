@@ -18,6 +18,22 @@ fn fsv_cli_read_voice_bank() {
 
   println('Voice bank table:')
   for phoneme_name, _ in voice_bank_load.entries {
-    print('${phoneme_name}     ')
+    print('${phoneme_name}  ')
   }
+  println('')
+
+  wav_data := voice_bank_load.read_entry('あ') or {
+    println('Entry not found!')
+    return
+  }
+  println('Read ${wav_data.len} bytes for あ')
+
+  analysis_data := voice_bank_load.read_analysis('あ') or {
+    println('Entry not found!')
+    return
+  }
+  println(analysis_data.root_frequency)
+  println(analysis_data.root_note)
+  println(analysis_data.confidence)
+  println(analysis_data.pitch_mark_count)
 }
