@@ -19,30 +19,26 @@ pub mut:
 
 const logger := log.Log{}
 
-pub fn input_processor(single_sample f32, mut s AudioStream) f32 {
-  mut out := single_sample
-
+pub fn input_processor(mut samples []f32, mut s AudioStream) {
 	for mut child_processor in s.chain_processor {
 		match child_processor {
 			processor.Volume {
-				out = processor.volume_processor(out, child_processor)
+				processor.volume_processor(mut samples, child_processor)
 			}
 			processor.Equalizer {
-				out = processor.equalizer_processor(out, mut child_processor)
+				processor.equalizer_processor(mut samples, mut child_processor)
 			}
 			processor.Reverb {
-				out = processor.reverb_processor(out, mut child_processor)
+				processor.reverb_processor(mut samples, mut child_processor)
 			}
 			processor.Compressor {
-				out = processor.compressor_processor(out, mut child_processor)
+				processor.compressor_processor(mut samples, mut child_processor)
 			}
 			processor.Limiter {
-				out = processor.limiter_processor(out, mut child_processor)
+				processor.limiter_processor(mut samples, mut child_processor)
 			}
 		}
 	}
-
-  return out
 }
 
 // INFO: Sokol audio stream callback
@@ -57,10 +53,12 @@ pub fn stream_callback(buffer &f32, num_frames int, num_channels int, user_data 
 	mut samples_read := s.ring_buffer.read(mut dest, total_samples)
 	mut debug_sample := []f32{len: total_samples}
 
+	input_processor(mut dest, mut s)
+
 	// INFO: Copy to the destination pointer
 	unsafe {
 		for i in 0 .. samples_read {
-			buffer[i] = input_processor(dest[i], mut s)
+			buffer[i] = dest[i]
 			debug_sample[i] = buffer[i]
 		}
 		// If we ran dry, fill the rest with silence

@@ -81,20 +81,22 @@ pub mut:
   gain f32
 }
 
-pub fn reverb_processor(sample f32, mut config Reverb) f32 {
-  input := sample * config.gain
+pub fn reverb_processor(mut samples []f32, mut config Reverb) {
+  for si in 0 .. samples.len {
+    input := samples[si] * config.gain
 
-  mut acc := f32(0.0)
+    mut acc := f32(0.0)
 
-  for i in 0 .. config.combs.len {
-    acc += config.combs[i].process(input)
+    for i in 0 .. config.combs.len {
+      acc += config.combs[i].process(input)
+    }
+
+    acc /= config.combs.len
+
+    // diffuse reflections
+    wet := config.diffuser.process(acc)
+
+    // dry/wet mix
+    samples[si] = samples[si] * (1.0 - config.mix) + wet * config.mix
   }
-
-  acc /= config.combs.len
-
-  // diffuse reflections
-  wet := config.diffuser.process(acc)
-
-  // dry/wet mix
-  return sample * (1.0 - config.mix) + wet * config.mix
 }

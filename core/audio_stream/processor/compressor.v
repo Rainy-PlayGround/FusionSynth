@@ -68,35 +68,37 @@ fn (mut c Compressor) detect(sample f32) f32 {
   }
 }
 
-pub fn compressor_processor(sample f32, mut config Compressor) f32 {
-  level := config.detect(sample)
+pub fn compressor_processor(mut samples []f32, mut config Compressor) {
+  for i in 0 .. samples.len {
+    level := config.detect(samples[i])
 
-  // INFO: Envelope follower
-  if level > config.envelope {
-    config.envelope += (level - config.envelope) * config.attack
-  } else {
-    config.envelope += (level - config.envelope) * config.release
+    // INFO: Envelope follower
+    if level > config.envelope {
+      config.envelope += (level - config.envelope) * config.attack
+    } else {
+      config.envelope += (level - config.envelope) * config.release
+    }
+
+    // INFO: Gain computer
+    mut target_gain := f32(1.0)
+    if config.envelope > config.threshold {
+      over := config.envelope - config.threshold
+      ratio := if config.ratio < 1.0 {
+        f32(1.0)
+      } else {
+        config.ratio
+      }
+      compressed := config.threshold + over / ratio
+      target_gain = compressed / config.envelope
+    }
+
+    // INFO: Smooth gain
+    if target_gain < config.gain {
+      config.gain += (target_gain - config.gain) * config.attack
+    } else {
+      config.gain += (target_gain - config.gain) * config.release
+    }
+
+    samples[i] = samples[i] * config.gain
   }
-
-  // INFO: Gain computer
-  mut target_gain := f32(1.0)
-  if config.envelope > config.threshold {
-    over := config.envelope - config.threshold
-		ratio := if config.ratio < 1.0 {
-			f32(1.0)
-		} else {
-			config.ratio
-		}
-    compressed := config.threshold + over / ratio
-    target_gain = compressed / config.envelope
-  }
-
-  // INFO: Smooth gain
-  if target_gain < config.gain {
-    config.gain += (target_gain - config.gain) * config.attack
-  } else {
-    config.gain += (target_gain - config.gain) * config.release
-  }
-
-  return sample * config.gain
 }

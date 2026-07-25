@@ -54,14 +54,12 @@ pub fn (mut filter Biquad) process(sample f32) f32 {
 	return out
 }
 
-pub fn equalizer_processor(sample f32, mut config Equalizer) f32 {
-	mut out := sample
-
-	for mut band in config.bands {
-		out = band.filter.process(out)
+pub fn equalizer_processor(mut samples []f32, mut config Equalizer) {
+	for i in 0 .. samples.len {
+		for mut band in config.bands {
+			samples[i] = band.filter.process(samples[i])
+		}
 	}
-
-	return out
 }
 
 pub fn recalculate_biquad(

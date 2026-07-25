@@ -6,6 +6,8 @@ pub mut:
   amount f32
 }
 
-pub fn volume_processor(single_sample f32, config Volume) f32 {
-  return single_sample * config.amount
+pub fn volume_processor(mut samples []f32, config Volume) {
+  for i in 0 .. samples.len {
+    samples[i] *= config.amount
+  }
 }
