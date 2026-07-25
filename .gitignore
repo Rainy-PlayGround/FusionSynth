@@ -34,3 +34,4 @@ rnd_fsvb/
 *.fsqv
 extracted_samples/
 test_bin
+test.v
