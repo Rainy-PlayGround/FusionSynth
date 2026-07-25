@@ -2,7 +2,9 @@ module cmd
 
 import time
 import math
+import os
 
+import core.audio_stream.processor
 import core.audio_stream
 import core.ring_buffer
 
@@ -20,11 +22,41 @@ fn fsv_cli_benchmark() {
 	total_samples := total_frames * channels
 
 	println('=== FusionSynthV DSP Benchmark ===')
-	println('Sample rate : ${sample_rate} Hz')
-	println('Channels    : ${channels}')
-	println('Duration    : ${duration_sec} s')
-	println('Total frames: ${total_frames}')
-	println('Total samples: ${total_samples}')
+	println('Sample rate       : ${sample_rate} Hz')
+	println('Channels          : ${channels}')
+	println('Duration          : ${duration_sec} s')
+	println('Total frames      : ${total_frames}')
+	println('Total samples     : ${total_samples}')
+	processor_option := os.args[2..]
+	println('Enabled Processors: ${processor_option.len}')
+
+  mut processors_list := []processor.ProcessorType{}
+	
+  for _, v in processor_option {
+		match v {
+			"1" {
+				println('✓ Volume Processor')
+				processors_list << volume_generator()
+			}
+			"2" {
+				println('✓ EQ Processor')
+				processors_list << eq_generator(sample_rate)
+			}
+			"3" {
+				println('✓ Reverb Processor')
+				processors_list << reverb_generator(sample_rate)
+			}
+			"4" {
+				println('✓ Compressor Processor')
+				processors_list << compressor_generator(sample_rate)
+			}
+			"5" {
+				println('✓ Limiter Processor') 
+				processors_list << limiter_generator()
+			}
+			else {}
+		} 
+  }
 	println('')
 
 	// Create a dummy stream with your real processors
@@ -32,13 +64,7 @@ fn fsv_cli_benchmark() {
 		ring_buffer: ring_buffer.new_ring_buffer(1024)
 		channels: channels
 		sample_rate: sample_rate
-		chain_processor: [
-			volume_generator(),
-			eq_generator(sample_rate),
-			reverb_generator(sample_rate),
-			compressor_generator(sample_rate),
-			limiter_generator(),
-		]
+		chain_processor: processors_list
 	}
 
 	// Generate a stereo test tone (440 Hz)
