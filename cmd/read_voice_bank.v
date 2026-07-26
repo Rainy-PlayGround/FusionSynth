@@ -36,4 +36,5 @@ fn fsv_cli_read_voice_bank() {
   println(analysis_data.root_note)
   println(analysis_data.confidence)
   println(analysis_data.pitch_mark_count)
+  println(analysis_data.pitch_marks[..10])
 }

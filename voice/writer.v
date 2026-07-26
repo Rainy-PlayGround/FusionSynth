@@ -3,29 +3,10 @@ module voice
 import os
 import core
 
-fn print_progress(current int, total int, prefix string) {
-	width := 40
-	ratio := f64(current) / f64(total)
-	filled := int(ratio * width)
-
-	mut bar := '['
-
-	for i := 0; i < width; i++ {
-		if i < filled {
-			bar += '#'
-		} else {
-			bar += '-'
-		}
-	}
-	bar += ']'
-
-	percent := int(ratio * 100)
-
-	print('\r${prefix} ${bar} ${percent}% (${current}/${total})')
-
-	if current == total {
-		println('')
-	}
+struct BuildEntry {
+  phoneme_name string
+  pcm          []u8
+  analysis     VoiceAnalysis
 }
 
 pub fn create_voice_bank(output string, files []string) ! {
@@ -40,7 +21,9 @@ pub fn create_voice_bank(output string, files []string) ! {
 
   mut entries := []VoiceBankEntry{}
   mut table_size := 0
+  mut build_entries := []BuildEntry{}
 
+  // INFO: read and extract entries name from file name
   for path in files {
     mut name := os.file_name(path)
     if name.starts_with('_') {
@@ -52,29 +35,34 @@ pub fn create_voice_bank(output string, files []string) ! {
     entries << VoiceBankEntry{
       name: name
     }
-    table_size += 20 + name.len
+    table_size += 36 + name.len
   }
 
-  // Header format (32 bytes total):
+  // INFO: Header format (32 bytes total):
   // 8B magic + 4B version + 4B count + 8B table_start + 4B sample_rate + 2B channels + 2B bits_per_sample
   table_start := u64(32)
   data_start := u64(32 + table_size)
 
-  // Reserve header + table space
+  // INFO: Reserve header + table space
   out.write([]u8{len: int(data_start)})!
 
-  mut current_offset := data_start
-
+  // INFO: Global PCM, now in this format, all wav files must have the same
+  // sample rate, channels and bits per sample
   mut global_sample_rate := u32(0)
   mut global_channels := u16(0)
   mut global_bits_per_sample := u16(0)
 
-  mut analysis_offset := data_start
-
+  // Total files for tracking
   total_files := files.len
 
+  // INFO: Read PCM and analysis voice
   for i, path in files {
-    print_progress(i, total_files, 'Analyzing and Building voice')
+    mut voice_name := os.file_name(path)
+    if voice_name.starts_with('_') {
+      voice_name = voice_name[1..voice_name.len - 4]
+    } else {
+      voice_name = voice_name[..voice_name.len - 4]
+    }
 
     wav_hdr := core.wav_parse(path)!
 
@@ -108,51 +96,76 @@ pub fn create_voice_bank(output string, files []string) ! {
     )!
 
     mut pcm := []u8{len: wav_hdr.data_size}
+
+    logger.debug("Read PCM for phoneme: [${voice_name}] (${i + 1}/${total_files})")
     wav_file.read(mut pcm)!
 
+    logger.debug("Analysing note and pitch for phoneme: [${voice_name}] (${i + 1}/${total_files})")
     analysis := analyze_voice(
       pcm,
       wav_hdr.sample_rate
     )!
+    logger.debug("Analysis results: ")
+    logger.debug("- root_frequency   : ${analysis.root_frequency} ")
+    logger.debug("- root_note        : ${analysis.root_note} ")
+    logger.debug("- confidence       : ${analysis.confidence} ")
+    logger.debug("- pitch_mark_count : ${analysis.pitch_mark_count} ")
+    logger.debug("- pitch_marks      : ${analysis.pitch_marks[0..5]} ")
+    logger.debug("---------------------------------------------------------------")
 
-    // write analysis
-    out.seek(i64(analysis_offset),.start)!
-    out.write_le(analysis.root_frequency)!
-    out.write([analysis.root_note])!
-    out.write([analysis.confidence])!
-    out.write_le(analysis.pitch_mark_count)!
+    build_entries << BuildEntry{
+      phoneme_name: voice_name
+      pcm: pcm
+      analysis: analysis
+    }
+  }
 
-    for mark in analysis.pitch_marks {
+  // INFO: Write voice analysis
+  logger.debug("Writing Voice Bank analysis data...")
+  mut current_offset := data_start
+  for i, be in build_entries {
+    out.seek(i64(current_offset),.start)!
+    out.write_le(be.analysis.root_frequency)!
+    out.write([be.analysis.root_note])!
+    out.write([be.analysis.confidence])!
+    out.write_le(be.analysis.pitch_mark_count)!
+
+    for mark in be.analysis.pitch_marks {
       out.write_le(mark)!
     }
 
-    entries[i].analysis_offset = analysis_offset
+    entries[i].analysis_offset = current_offset
     entries[i].analysis_size =
-      u64(10 + analysis.pitch_marks.len * 4)
-    analysis_offset += entries[i].analysis_size
-
-    // PCM
-    out.seek(i64(current_offset), .start)!
-    out.write(pcm)!
-    entries[i].offset = current_offset
-    entries[i].size = u64(pcm.len)
-    current_offset += u64(pcm.len)
+      u64(10 + be.analysis.pitch_marks.len * 4)
+    current_offset += entries[i].analysis_size
   }
 
-  // Write index table
-  out.seek(i64(table_start), .start)!
+  // INFO: Write PCM
+  logger.debug("Writing Voice Bank PCM data...")
+  for i, pcm_be in build_entries {
+    out.seek(i64(current_offset), .start)!
+    out.write(pcm_be.pcm)!
+    entries[i].offset = current_offset
+    entries[i].size = u64(pcm_be.pcm.len)
+    current_offset += u64(pcm_be.pcm.len)
+  }
 
+  // INFO: Write index table
+  out.seek(i64(table_start), .start)!
+  logger.debug("Writing Voice Bank index table...")
   for e in entries {
     name_bytes := e.name.bytes()
-
     out.write_le(u16(name_bytes.len))!
-    out.write_le(u16(0))! // reserved
+    out.write_le(u16(0))!
     out.write_le(e.offset)!
     out.write_le(e.size)!
+    out.write_le(e.analysis_offset)!
+    out.write_le(e.analysis_size)!
     out.write(name_bytes)!
   }
 
-  // Write header last
+  // INFO: Write header last
+  logger.debug("Writing Voice Bank headers...")
   out.seek(0, .start)!
   out.write(magic.bytes())!
   out.write_le(version)!
@@ -161,4 +174,6 @@ pub fn create_voice_bank(output string, files []string) ! {
   out.write_le(global_sample_rate)!
   out.write_le(global_channels)!
   out.write_le(global_bits_per_sample)!
+
+  logger.debug("Finished building!")
 }

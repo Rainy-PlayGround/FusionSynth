@@ -98,6 +98,50 @@ fn hz_to_note(freq f32) u8 {
 	return u8(math.round(note))
 }
 
+fn detect_pitch_marks(samples []i16, sample_rate int, root_frequency f32) []u32 {
+	if root_frequency <= 0 {
+		return []u32{}
+	}
+	period := int(f32(sample_rate) / root_frequency)
+	if period <= 0 {
+		return []u32{}
+	}
+
+	search_radius := period / 4
+	mut marks := []u32{}
+	mut estimate := period / 2
+
+	for estimate < samples.len {
+		start := if estimate > search_radius {
+			estimate - search_radius
+		} else {
+			0
+		}
+
+		end := if estimate + search_radius < samples.len {
+			estimate + search_radius
+		} else {
+			samples.len - 1
+		}
+
+		mut best := estimate
+		mut best_amp := 0
+
+		for i := start; i <= end; i++ {
+			amp := int(math.abs(samples[i]))
+
+			if amp > best_amp {
+				best_amp = amp
+				best = i
+			}
+		}
+
+		marks << u32(best)
+		estimate += period
+	}
+
+	return marks
+}
 
 fn analyze_voice(pcm []u8, sample_rate int)!VoiceAnalysis {
 	if pcm.len % 2 != 0 {
@@ -139,9 +183,18 @@ fn analyze_voice(pcm []u8, sample_rate int)!VoiceAnalysis {
 
 	root := median(detected)
 
+	marks := detect_pitch_marks(
+		samples,
+		sample_rate,
+		root
+	)
+
 	return VoiceAnalysis{
 		root_frequency: root
 		root_note: hz_to_note(root)
 		confidence: 100
+
+		pitch_mark_count: u32(marks.len)
+		pitch_marks: marks
 	}
 }

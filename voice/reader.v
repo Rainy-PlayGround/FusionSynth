@@ -4,77 +4,92 @@ import os
 import encoding.binary
 
 pub fn open_voice_bank(path string) !VoiceBank {
-  mut f := os.open(path)!
+	mut f := os.open(path)!
 
-  mut magic_buf := []u8{len: 8}
-  f.read(mut magic_buf)!
-  if magic_buf.bytestr() != magic {
-    f.close()
-    return error('Invalid bank file: magic mismatch (expected "${magic}", got "${magic_buf.bytestr()}")')
-  }
+	mut magic_buf := []u8{len: 8}
+	f.read(mut magic_buf)!
 
-  mut u16_buf := []u8{len: 2}
-  mut u32_buf := []u8{len: 4}
-  mut u64_buf := []u8{len: 8}
+	if magic_buf.bytestr() != magic {
+		f.close()
+		return error('Invalid bank file: magic mismatch (expected "${magic}", got "${magic_buf.bytestr()}")')
+	}
 
-  f.read(mut u32_buf)!
-  bank_version := binary.little_endian_u32(u32_buf)
+	mut u16_buf := []u8{len: 2}
+	mut u32_buf := []u8{len: 4}
+	mut u64_buf := []u8{len: 8}
 
-  if bank_version != version {
-    f.close()
-    return error('Unsupported bank version: ${bank_version}')
-  }
+	// INFO: version
+	f.read(mut u32_buf)!
+	bank_version := binary.little_endian_u32(u32_buf)
 
-  f.read(mut u32_buf)!
-  count := binary.little_endian_u32(u32_buf)
+	if bank_version != version {
+		f.close()
+		return error('Unsupported bank version: ${bank_version}')
+	}
 
-  f.read(mut u64_buf)!
-  table_start := binary.little_endian_u64(u64_buf)
+	// INFO: entry count
+	f.read(mut u32_buf)!
+	count := binary.little_endian_u32(u32_buf)
 
-  // Read header audio metadata
-  f.read(mut u32_buf)!
-  sample_rate := binary.little_endian_u32(u32_buf)
+	// INFO: table offset
+	f.read(mut u64_buf)!
+	table_start := binary.little_endian_u64(u64_buf)
 
-  f.read(mut u16_buf)!
-  channels := binary.little_endian_u16(u16_buf)
+	// INFO: global audio format
+	f.read(mut u32_buf)!
+	sample_rate := binary.little_endian_u32(u32_buf)
+	f.read(mut u16_buf)!
+	channels := binary.little_endian_u16(u16_buf)
+	f.read(mut u16_buf)!
+	bits_per_sample := binary.little_endian_u16(u16_buf)
 
-  f.read(mut u16_buf)!
-  bits_per_sample := binary.little_endian_u16(u16_buf)
+	f.seek(i64(table_start), .start)!
+	mut entries := map[string]VoiceBankEntry{}
+	for _ in 0 .. count {
+		f.read(mut u16_buf)!
+		name_len := binary.little_endian_u16(u16_buf)
 
-  f.seek(i64(table_start), .start)!
-  mut entries := map[string]VoiceBankEntry{}
+		// INFO: reserved for..... nothing
+		f.read(mut u16_buf)!
 
-  for _ in 0 .. count {
-    f.read(mut u16_buf)!
-    name_len := binary.little_endian_u16(u16_buf)
+		// INFO: pcm offset
+		f.read(mut u64_buf)!
+		offset := binary.little_endian_u64(u64_buf)
 
-    f.read(mut u16_buf)! // reserved field
+		// INFO: pcm size
+		f.read(mut u64_buf)!
+		size := binary.little_endian_u64(u64_buf)
 
-    f.read(mut u64_buf)!
-    offset := binary.little_endian_u64(u64_buf)
+		// INFO: analysis offset
+		f.read(mut u64_buf)!
+		analysis_offset := binary.little_endian_u64(u64_buf)
 
-    f.read(mut u64_buf)!
-    size := binary.little_endian_u64(u64_buf)
+		// INFO: analysis size
+		f.read(mut u64_buf)!
+		analysis_size := binary.little_endian_u64(u64_buf)
 
-    mut name_buf := []u8{len: int(name_len)}
-    f.read(mut name_buf)!
-    name := name_buf.bytestr()
+    // INFO: Phoneme name
+		mut name_buf := []u8{len: int(name_len)}
+		f.read(mut name_buf)!
+		name := name_buf.bytestr()
 
-    entries[name] = VoiceBankEntry{
-      name: name
-      offset: offset
-      size: size
-    }
-  }
+		entries[name] = VoiceBankEntry{
+			name: name
+			offset: offset
+			size: size
+			analysis_offset: analysis_offset
+			analysis_size: analysis_size
+		}
+	}
 
-  return VoiceBank{
-    file: f
-    version: bank_version
-    sample_rate: sample_rate
-    channels: channels
-    bits_per_sample: bits_per_sample
-    entries: entries
-  }
+	return VoiceBank{
+		file: f
+		version: bank_version
+		sample_rate: sample_rate
+		channels: channels
+		bits_per_sample: bits_per_sample
+		entries: entries
+	}
 }
 
 pub fn (mut b VoiceBank) close() {
