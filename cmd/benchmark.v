@@ -4,8 +4,8 @@ import time
 import math
 import os
 
-import core.audio_stream.processor
-import core.audio_stream
+import core.stream.processor
+import core.stream
 import core.ring_buffer
 
 const benchmark_duration_sec = 30
@@ -60,7 +60,7 @@ fn fsv_cli_benchmark() {
 	println('')
 
 	// Create a dummy stream with your real processors
-	mut stream := audio_stream.AudioStream{
+	mut a_stream := stream.AudioStream{
 		ring_buffer: ring_buffer.new_ring_buffer(1024)
 		channels: channels
 		sample_rate: sample_rate
@@ -87,7 +87,7 @@ fn fsv_cli_benchmark() {
 	// Warm-up (process a few blocks in-place)
 	for i := 0; i < 100 * block_samples; i += block_samples {
 		end := if i + block_samples <= total_samples { i + block_samples } else { total_samples }
-		audio_stream.input_processor(mut output[i..end], mut stream)
+		stream.input_processor(mut output[i..end], mut a_stream)
 	}
 
 	// Reset output buffer after warm-up
@@ -103,7 +103,7 @@ fn fsv_cli_benchmark() {
 		}
 
 		// Process slice directly in-place
-		audio_stream.input_processor(mut output[i..end], mut stream)
+		stream.input_processor(mut output[i..end], mut a_stream)
 	}
 
 	elapsed := time.since(start)
@@ -157,7 +157,7 @@ fn fsv_cli_benchmark() {
 			}
 
 			// Process in-place
-			audio_stream.input_processor(mut chunk, mut stream)
+			stream.input_processor(mut chunk, mut a_stream)
 		}
 
 		buf_elapsed := time.since(buf_start)

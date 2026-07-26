@@ -3,7 +3,7 @@ module cmd
 import sokol.audio
 import time
 
-import core.audio_stream
+import core.stream
 import core.ring_buffer
 import voice
 
@@ -99,7 +99,7 @@ fn fsv_cli_play_voice_bank() {
 	logger.info('[play_voice_bank] Phoneme Database Channels: ${qvb.channels}')
 	logger.info('[play_voice_bank] Phoneme Database Format: ${qvb.bits_per_sample}-bit PCM')
 
-	mut stream := audio_stream.VoiceAudioStream{
+	mut a_stream := stream.VoiceAudioStream{
 		phoneme: &qvb
 		phoneme_name: ''
 		phoneme_offset: u64(0)
@@ -114,33 +114,33 @@ fn fsv_cli_play_voice_bank() {
 	audio.setup(
 		sample_rate: int(qvb.sample_rate)
 		num_channels: int(qvb.channels)
-		stream_userdata_cb: audio_stream.voice_stream_callback
-		user_data: voidptr(&stream)
+		stream_userdata_cb: stream.voice_stream_callback
+		user_data: voidptr(&a_stream)
 	)
 
-	stream.phoneme_name = phonemes_to_play.first()
-	stream.phoneme_offset = 0
-	stream.eof = false
+	a_stream.phoneme_name = phonemes_to_play.first()
+	a_stream.phoneme_offset = 0
+	a_stream.eof = false
   phonemes_to_play.delete(0)
-	logger.info('[play_voice_bank] Add phoneme name to play queue: ' + stream.phoneme_name)
+	logger.info('[play_voice_bank] Add phoneme name to play queue: ' + a_stream.phoneme_name)
 
-	audio_stream.phoneme_refill_stream(mut stream)
+	stream.phoneme_refill_stream(mut a_stream)
 	for {
-		audio_stream.phoneme_refill_stream(mut stream)
+		stream.phoneme_refill_stream(mut a_stream)
 	
-		stream.ring_buffer.mutex.lock()
-		buffer_size := stream.ring_buffer.size
-		stream.ring_buffer.mutex.unlock()
+		a_stream.ring_buffer.mutex.lock()
+		buffer_size := a_stream.ring_buffer.size
+		a_stream.ring_buffer.mutex.unlock()
 
-		if stream.eof && phonemes_to_play.len != 0  {
-			stream.phoneme_name = phonemes_to_play.first()
-			stream.phoneme_offset = 0
-			stream.eof = false
+		if a_stream.eof && phonemes_to_play.len != 0  {
+			a_stream.phoneme_name = phonemes_to_play.first()
+			a_stream.phoneme_offset = 0
+			a_stream.eof = false
 			phonemes_to_play.delete(0)
-			logger.info('[play_voice_bank] Add phoneme name to play queue: ' + stream.phoneme_name)
+			logger.info('[play_voice_bank] Add phoneme name to play queue: ' + a_stream.phoneme_name)
 		}
 
-		if stream.eof && buffer_size == 0 && phonemes_to_play.len == 0 {
+		if a_stream.eof && buffer_size == 0 && phonemes_to_play.len == 0 {
 			break
 		}
 	}

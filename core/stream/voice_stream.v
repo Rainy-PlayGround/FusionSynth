@@ -1,25 +1,24 @@
-module audio_stream
+module stream
 
-import log
-import os
 import core.ring_buffer
+import voice
 import processor
-import runtime
 
-pub struct AudioStream {
+pub struct VoiceAudioStream {
 pub mut:
-	file        		os.File
-	ring_buffer 		ring_buffer.RingBuffer
-	channels    		int
-	sample_rate 		int
-	eof         		bool
-	total_read  		u64 // INFO: Tracks overall progress for timing calculations
+	phoneme        voidptr
+	phoneme_name   string
+	phoneme_offset u64
+	ring_buffer 	 ring_buffer.RingBuffer
+	channels    	 int
+	sample_rate 	 int
+	eof         	 bool
+	stream_end		 bool
+	total_read  	 u64 // INFO: Tracks overall progress for timing calculations
 	chain_processor []processor.ProcessorType
 }
 
-const logger := log.Log{}
-
-pub fn input_processor(mut samples []f32, mut s AudioStream) {
+pub fn voice_input_processor(mut samples []f32, mut s VoiceAudioStream) {
 	for mut child_processor in s.chain_processor {
 		match child_processor {
 			processor.Volume {
@@ -42,8 +41,8 @@ pub fn input_processor(mut samples []f32, mut s AudioStream) {
 }
 
 // INFO: Sokol audio stream callback
-pub fn stream_callback(buffer &f32, num_frames int, num_channels int, user_data voidptr) {
-	mut s := unsafe { &AudioStream(user_data) }
+pub fn voice_stream_callback(buffer &f32, num_frames int, num_channels int, user_data voidptr) {
+	mut s := unsafe { &VoiceAudioStream(user_data) }
 	total_samples := num_frames * num_channels
 
 	// INFO: Create a temporary slice representing Sokol's destination buffer
@@ -53,7 +52,7 @@ pub fn stream_callback(buffer &f32, num_frames int, num_channels int, user_data 
 	mut samples_read := s.ring_buffer.read(mut dest, total_samples)
 	mut debug_sample := []f32{len: total_samples}
 
-	input_processor(mut dest, mut s)
+	voice_input_processor(mut dest, mut s)
 
 	// INFO: Copy to the destination pointer
 	unsafe {
@@ -66,29 +65,18 @@ pub fn stream_callback(buffer &f32, num_frames int, num_channels int, user_data 
 			buffer[i] = 0.0
 			debug_sample[i] = buffer[i]
 		}
-
-		used_bytes := runtime.used_memory() or {
-			eprintln('Failed to get memory usage: ${err}')
-			0
-		}
-		mem_mb := f64(used_bytes) / 1024.0 / 1024.0
-
-		logger.debug("Sample Rate: ${s.sample_rate} Hz, Channels: ${s.channels}")
-		logger.debug("Mem: ${mem_mb:.2f} MB, Sample Block: ${debug_sample[0..5]} ")
-		
 	}
 }
 
-// INFO: Reads chunks from the file, converts PCM16 to f32, and pushes to the Ring Buffer
-pub fn refill_stream(mut s AudioStream) {
+pub fn phoneme_refill_stream(mut s VoiceAudioStream) {
+	mut rebuild_voice := &voice.VoiceBank(s.phoneme)
 	if s.eof {
 		return
 	}
 
-	// INFO: See how many f32 samples we have room to write
 	available := s.ring_buffer.available_write()
 	if available < 1024 {
-		return // Don't do tiny reads; wait until there's decent space
+		return
 	}
 
 	// INFO: 1 sample = 2 bytes (16-bit)
@@ -96,7 +84,8 @@ pub fn refill_stream(mut s AudioStream) {
 	bytes_to_read := samples_to_read * 2
 
 	mut raw := []u8{len: bytes_to_read}
-	bytes_read := s.file.read(mut raw) or {
+	
+	bytes_read := rebuild_voice.read_entry_at(mut raw, s.phoneme_name, s.phoneme_offset) or {
 		s.eof = true
 		return
 	}
@@ -114,5 +103,6 @@ pub fn refill_stream(mut s AudioStream) {
 	}
 
 	written := s.ring_buffer.write(decoded)
+	s.phoneme_offset += u64(bytes_to_read)
 	s.total_read += u64(written)
 }

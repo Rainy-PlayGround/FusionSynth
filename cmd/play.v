@@ -5,7 +5,7 @@ import time
 import os
 
 import core
-import core.audio_stream
+import core.stream
 import core.ring_buffer
 
 fn fsv_cli_play() {
@@ -31,7 +31,7 @@ fn fsv_cli_play() {
 	file.seek(wav.data_offset, .start) or { panic(err.msg()) }
 
 	// INFO: Create the audio stream with a 64k f32 sample ring buffer
-	mut stream := audio_stream.AudioStream{
+	mut a_stream := stream.AudioStream{
 		file: file
 		ring_buffer: ring_buffer.new_ring_buffer(65536)
 		channels: wav.channels
@@ -48,13 +48,13 @@ fn fsv_cli_play() {
 	}
 
 	// INFO: Preload the ring buffer before we start playback
-	audio_stream.refill_stream(mut stream)
+	stream.refill_stream(mut a_stream)
 
 	audio.setup(
 		sample_rate: wav.sample_rate
 		num_channels: wav.channels
-		stream_userdata_cb: audio_stream.stream_callback
-		user_data: voidptr(&stream)
+		stream_userdata_cb: stream.stream_callback
+		user_data: voidptr(&a_stream)
 	)
 
 	logger.info('[cmd/play.v] Playing...')
@@ -62,14 +62,14 @@ fn fsv_cli_play() {
 
 	for {
 		// INFO: Keep refilling the ring buffer from the main loop
-		audio_stream.refill_stream(mut stream)
+		stream.refill_stream(mut a_stream)
 
-		stream.ring_buffer.mutex.lock()
-		buffer_size := stream.ring_buffer.size
-		stream.ring_buffer.mutex.unlock()
+		a_stream.ring_buffer.mutex.lock()
+		buffer_size := a_stream.ring_buffer.size
+		a_stream.ring_buffer.mutex.unlock()
 
 		// INFO: Stop when we reach EOF and the buffer is completely drained
-		if stream.eof && buffer_size == 0 {
+		if a_stream.eof && buffer_size == 0 {
 			break
 		}
 
@@ -83,6 +83,6 @@ fn fsv_cli_play() {
 	time.sleep(200 * time.millisecond)
 
 	audio.shutdown()
-	stream.file.close()
+	a_stream.file.close()
 	logger.info('Done!')
 }

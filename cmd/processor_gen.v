@@ -1,6 +1,6 @@
 module cmd
 
-import core.audio_stream.processor as audio_processor
+import core.stream.processor as audio_processor
 
 fn eq_generator(sample_rate int) audio_processor.Equalizer {
 	mut eq := audio_processor.Equalizer{
