@@ -106,6 +106,7 @@ fn fsv_cli_play_voice_bank() {
 		ring_buffer: ring_buffer.new_ring_buffer(65536)
 		channels: int(qvb.channels)
 		sample_rate: int(qvb.sample_rate)
+		format: qvb.pcm_format
 		eof: false
 		total_read: 0
 		chain_processor: []

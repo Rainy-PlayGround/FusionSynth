@@ -65,6 +65,7 @@ fn fsv_cli_benchmark() {
 		channels: channels
 		sample_rate: sample_rate
 		chain_processor: processors_list
+		format: 'f32le'
 	}
 
 	// Generate a stereo test tone (440 Hz)

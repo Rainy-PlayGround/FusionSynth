@@ -3,12 +3,14 @@ module stream
 import core.ring_buffer
 import voice
 import processor
+import core.formats.pcm
 
 pub struct VoiceAudioStream {
 pub mut:
 	phoneme        voidptr
 	phoneme_name   string
 	phoneme_offset u64
+	format				 string
 	ring_buffer 	 ring_buffer.RingBuffer
 	channels    	 int
 	sample_rate 	 int
@@ -96,10 +98,21 @@ pub fn phoneme_refill_stream(mut s VoiceAudioStream) {
 	}
 
 	// INFO: Decode PCM16 bytes directly into an f32 slice
-	mut decoded := []f32{cap: bytes_read / 2}
-	for i := 0; i < bytes_read - 1; i += 2 {
-		sample_16 := i16(u16(raw[i]) | (u16(raw[i + 1]) << 8))
-		decoded << f32(sample_16) / 32768.0
+	mut decoded := []f32{}
+	match s.format {
+		"s16le" {
+			decoded = pcm.s16le_decoder(raw, bytes_read)
+		}
+		"s24le" {
+			decoded = pcm.s24le_decoder(raw, bytes_read)
+		}
+		"s32le" {
+			decoded = pcm.s32le_decoder(raw, bytes_read)
+		}
+		"f32le" {
+			decoded = pcm.f32le_decoder(raw, bytes_read)
+		}
+		else {}
 	}
 
 	written := s.ring_buffer.write(decoded)

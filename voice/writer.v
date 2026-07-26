@@ -1,7 +1,7 @@
 module voice
 
 import os
-import core
+import core.formats.wav
 
 struct BuildEntry {
   phoneme_name string
@@ -38,10 +38,17 @@ pub fn create_voice_bank(output string, files []string) ! {
     table_size += 36 + name.len
   }
 
-  // INFO: Header format (32 bytes total):
-  // 8B magic + 4B version + 4B count + 8B table_start + 4B sample_rate + 2B channels + 2B bits_per_sample
-  table_start := u64(32)
-  data_start := u64(32 + table_size)
+  // INFO: Header format (34 bytes total):
+  // 8B magic 
+  //  + 4B version 
+  //  + 4B count 
+  //  + 8B table_start 
+  //  + 4B sample_rate 
+  //  + 2B channels 
+  //  + 2B bits_per_sample 
+  //  + 2B pcm full format declartion
+  table_start := u64(34)
+  data_start := u64(34 + table_size)
 
   // INFO: Reserve header + table space
   out.write([]u8{len: int(data_start)})!
@@ -51,6 +58,7 @@ pub fn create_voice_bank(output string, files []string) ! {
   mut global_sample_rate := u32(0)
   mut global_channels := u16(0)
   mut global_bits_per_sample := u16(0)
+  mut global_pcm_format := u16(0)
 
   // Total files for tracking
   total_files := files.len
@@ -64,13 +72,14 @@ pub fn create_voice_bank(output string, files []string) ! {
       voice_name = voice_name[..voice_name.len - 4]
     }
 
-    wav_hdr := core.wav_parse(path)!
+    wav_hdr := wav.parse(path)!
 
     // Grab audio attributes from the first file
     if i == 0 {
       global_sample_rate = u32(wav_hdr.sample_rate)
       global_channels = u16(wav_hdr.channels)
       global_bits_per_sample = u16(wav_hdr.bits_per_sec)
+      global_pcm_format = u16(convert_string_format_to_bit(wav_hdr.format))
     }
 
     if wav_hdr.sample_rate != global_sample_rate {
@@ -103,7 +112,8 @@ pub fn create_voice_bank(output string, files []string) ! {
     logger.debug("Analysing note and pitch for phoneme: [${voice_name}] (${i + 1}/${total_files})")
     analysis := analyze_voice(
       pcm,
-      wav_hdr.sample_rate
+      wav_hdr.sample_rate,
+      global_pcm_format
     )!
     logger.debug("Analysis results: ")
     logger.debug("- root_frequency   : ${analysis.root_frequency} ")
@@ -111,6 +121,12 @@ pub fn create_voice_bank(output string, files []string) ! {
     logger.debug("- confidence       : ${analysis.confidence} ")
     logger.debug("- pitch_mark_count : ${analysis.pitch_mark_count} ")
     logger.debug("- pitch_marks      : ${analysis.pitch_marks[0..5]} ")
+    logger.debug("- average_volume   : ${analysis.average_volume}")
+    logger.debug("- peak             : ${analysis.peak}")
+    logger.debug("- attack_start     : ${analysis.attack_start}")
+    logger.debug("- release_start    : ${analysis.release_start}")
+    logger.debug("- loop_start       : ${analysis.loop_start}")
+    logger.debug("- loop_end         : ${analysis.loop_end}")
     logger.debug("---------------------------------------------------------------")
 
     build_entries << BuildEntry{
@@ -128,6 +144,12 @@ pub fn create_voice_bank(output string, files []string) ! {
     out.write_le(be.analysis.root_frequency)!
     out.write([be.analysis.root_note])!
     out.write([be.analysis.confidence])!
+    out.write_le(be.analysis.average_volume)!
+    out.write_le(be.analysis.peak)!
+    out.write_le(be.analysis.attack_start)!
+    out.write_le(be.analysis.release_start)!
+    out.write_le(be.analysis.loop_start)!
+    out.write_le(be.analysis.loop_end)!
     out.write_le(be.analysis.pitch_mark_count)!
 
     for mark in be.analysis.pitch_marks {
@@ -174,6 +196,7 @@ pub fn create_voice_bank(output string, files []string) ! {
   out.write_le(global_sample_rate)!
   out.write_le(global_channels)!
   out.write_le(global_bits_per_sample)!
+  out.write_le(global_pcm_format)!
 
   logger.debug("Finished building!")
 }

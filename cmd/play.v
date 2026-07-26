@@ -4,7 +4,7 @@ import sokol.audio
 import time
 import os
 
-import core
+import core.formats.wav
 import core.stream
 import core.ring_buffer
 
@@ -20,29 +20,31 @@ fn fsv_cli_play() {
 		panic('File missing or not found!')
 	}
 
-	wav := core.wav_parse(file_path) or { panic('Failed to parse WAV file: ${err}') }
+	wpf := wav.parse(file_path) or { panic('Failed to parse WAV file: ${err}') }
 
 	logger.info('[cmd/play.v] Loaded: ${file_path}')
-	logger.info('[cmd/play.v] Sample Rate: ${wav.sample_rate} Hz')
-	logger.info('[cmd/play.v] Channels: ${wav.channels}')
-	logger.info('[cmd/play.v] Format: ${wav.bits_per_sec}-bit PCM')
+	logger.info('[cmd/play.v] Sample Rate: ${wpf.sample_rate} Hz')
+	logger.info('[cmd/play.v] Channels: ${wpf.channels}')
+	logger.info('[cmd/play.v] Format: ${wpf.bits_per_sec}-bit PCM')
+	logger.info('[cmd/play.v] Full Format: ${wpf.format} PCM')
 
 	mut file := os.open(file_path) or { panic(err.msg()) }
-	file.seek(wav.data_offset, .start) or { panic(err.msg()) }
+	file.seek(wpf.data_offset, .start) or { panic(err.msg()) }
 
 	// INFO: Create the audio stream with a 64k f32 sample ring buffer
 	mut a_stream := stream.AudioStream{
 		file: file
 		ring_buffer: ring_buffer.new_ring_buffer(65536)
-		channels: wav.channels
-		sample_rate: wav.sample_rate
+		channels: wpf.channels
+		sample_rate: wpf.sample_rate
 		eof: false
 		total_read: 0
+		format: wpf.format
 		chain_processor: [
 			volume_generator(),
-			eq_generator(wav.sample_rate),
-			reverb_generator(wav.sample_rate),
-			compressor_generator(wav.sample_rate),
+			eq_generator(wpf.sample_rate),
+			reverb_generator(wpf.sample_rate),
+			compressor_generator(wpf.sample_rate),
 			limiter_generator(),
 		]
 	}
@@ -51,8 +53,8 @@ fn fsv_cli_play() {
 	stream.refill_stream(mut a_stream)
 
 	audio.setup(
-		sample_rate: wav.sample_rate
-		num_channels: wav.channels
+		sample_rate: wpf.sample_rate
+		num_channels: wpf.channels
 		stream_userdata_cb: stream.stream_callback
 		user_data: voidptr(&a_stream)
 	)

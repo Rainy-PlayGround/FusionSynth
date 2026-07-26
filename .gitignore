@@ -36,3 +36,4 @@ extracted_samples/
 test_bin
 test.v
 .gitignore
+*.patch

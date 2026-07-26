@@ -42,6 +42,8 @@ pub fn open_voice_bank(path string) !VoiceBank {
 	channels := binary.little_endian_u16(u16_buf)
 	f.read(mut u16_buf)!
 	bits_per_sample := binary.little_endian_u16(u16_buf)
+	f.read(mut u16_buf)!
+	pcm_format := binary.little_endian_u16(u16_buf)
 
 	f.seek(i64(table_start), .start)!
 	mut entries := map[string]VoiceBankEntry{}
@@ -89,6 +91,7 @@ pub fn open_voice_bank(path string) !VoiceBank {
 		channels: channels
 		bits_per_sample: bits_per_sample
 		entries: entries
+		pcm_format: convert_bit_to_string_format(pcm_format)
 	}
 }
 
@@ -156,17 +159,32 @@ pub fn (mut b VoiceBank) read_analysis(name string) !VoiceAnalysis {
   mut byte_data := []u8{len:1}
 
   b.file.read(mut byte_data)!
-
   root_note := byte_data[0]
 
-
   b.file.read(mut byte_data)!
-
   confidence := byte_data[0]
 
+	b.file.read(mut f32_buf)!
+	average_volume_bits := binary.little_endian_u32(f32_buf)
+	average_volume := unsafe { *(&f32(&average_volume_bits))}
 
-  b.file.read(mut u32_buf)!
+	b.file.read(mut f32_buf)!
+	peak_bits := binary.little_endian_u32(f32_buf)
+	peak := unsafe { *(&f32(&peak_bits)) }
 
+	b.file.read(mut u32_buf)!
+  attack_start := binary.little_endian_u32(u32_buf)
+
+	b.file.read(mut u32_buf)!
+  release_start := binary.little_endian_u32(u32_buf)
+
+	b.file.read(mut u32_buf)!
+  loop_start := binary.little_endian_u32(u32_buf)
+
+	b.file.read(mut u32_buf)!
+  loop_end := binary.little_endian_u32(u32_buf)
+
+	b.file.read(mut u32_buf)!
   count := binary.little_endian_u32(u32_buf)
 
   mut marks := []u32{}
@@ -182,5 +200,11 @@ pub fn (mut b VoiceBank) read_analysis(name string) !VoiceAnalysis {
     confidence: confidence
     pitch_mark_count: count
     pitch_marks: marks
+		average_volume: average_volume
+		peak: peak
+		attack_start: attack_start
+		release_start: release_start
+		loop_start: loop_start
+		loop_end: loop_end
   }
 }
