@@ -2,6 +2,13 @@ module voice
 
 import os
 import encoding.binary
+import core.formats.pcm
+
+pub struct VoiceSample {
+pub:
+  pcm []f32
+  metadata voice.VoiceMetadata
+}
 
 pub fn open_voice_bank(path string) !VoiceBank {
 	mut f := os.open(path)!
@@ -70,7 +77,7 @@ pub fn open_voice_bank(path string) !VoiceBank {
 		f.read(mut u64_buf)!
 		analysis_size := binary.little_endian_u64(u64_buf)
 
-    // INFO: Phoneme name
+    // INFO: Voice Phoneme name
 		mut name_buf := []u8{len: int(name_len)}
 		f.read(mut name_buf)!
 		name := name_buf.bytestr()
@@ -98,6 +105,41 @@ pub fn open_voice_bank(path string) !VoiceBank {
 pub fn (mut b VoiceBank) close() {
   b.file.close()
 }
+
+pub fn (mut b VoiceBank) load_voice_sample(name string) !VoiceSample {
+	entry := b.entries[name] or {
+		return error('Voice Sample "${name}" not found in bank')
+	}
+
+	raw_data := b.read_entry(entry.name)!
+	mut analysis := b.read_voice_metadata(entry.name)!
+
+	mut decoded := []f32{}
+
+	match b.pcm_format {
+		"s16le" {
+			decoded = pcm.s16le_decoder(raw_data, raw_data.len)
+		}
+		"s24le" {
+			decoded = pcm.s24le_decoder(raw_data, raw_data.len)
+		}
+		"s32le" {
+			decoded = pcm.s32le_decoder(raw_data, raw_data.len)
+		}
+		"f32le" {
+			decoded = pcm.f32le_decoder(raw_data, raw_data.len)
+		}
+		else {
+			return error('Unsupported PCM format')
+		}
+	}
+
+	return VoiceSample{
+		pcm: decoded
+		metadata: analysis
+	}
+}
+
 
 pub fn (mut b VoiceBank) read_entry(name string) ![]u8 {
   entry := b.entries[name] or {
@@ -135,7 +177,7 @@ pub fn (mut b VoiceBank) read_entry_at(mut array_data []u8, name string, offset 
 	return bytes_read
 }
 
-pub fn (mut b VoiceBank) read_analysis(name string) !VoiceAnalysis {
+pub fn (mut b VoiceBank) read_voice_metadata(name string) !VoiceMetadata {
   entry := b.entries[name] or {
     return error('Entry not found')
   }
@@ -194,7 +236,7 @@ pub fn (mut b VoiceBank) read_analysis(name string) !VoiceAnalysis {
     marks << binary.little_endian_u32(u32_buf)
   }
 
-  return VoiceAnalysis{
+  return VoiceMetadata{
     root_frequency: root_frequency
     root_note: root_note
     confidence: confidence

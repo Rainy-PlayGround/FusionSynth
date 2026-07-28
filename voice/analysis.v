@@ -225,7 +225,7 @@ fn calculate_loop_points(attack u32, release u32, sample_rate int)(u32,u32) {
 	return loop_start, loop_end
 }
 
-pub fn analyze_voice(pcm_data []u8, sample_rate int, pcm_format u16)!VoiceAnalysis {
+pub fn analyze_voice(pcm_data []u8, sample_rate int, pcm_format u16)!VoiceMetadata {
 	samples := decode_pcm(pcm_data, pcm_format)!
 	frame_size := 2048
 	hop_size := 512
@@ -256,7 +256,7 @@ pub fn analyze_voice(pcm_data []u8, sample_rate int, pcm_format u16)!VoiceAnalys
 	release := detect_release_start(samples, sample_rate)
 	loop_start, loop_end := calculate_loop_points(attack, release, sample_rate)
 
-	return VoiceAnalysis{
+	return VoiceMetadata{
 		root_frequency: root
 		root_note: hz_to_note(root)
 		confidence: 100

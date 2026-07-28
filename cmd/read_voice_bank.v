@@ -25,28 +25,21 @@ fn fsv_cli_read_voice_bank() {
   }
   println("---------------------------------------------------------------")
 
-  wav_data := voice_bank_load.read_entry('つぃ') or {
+  voice_sample := voice_bank_load.load_voice_sample('あ') or {
     println('Entry not found!')
     return
   }
-  println('Read ${wav_data.len} bytes for つぃ')
-  println("---------------------------------------------------------------")
-
-  analysis_data := voice_bank_load.read_analysis('つぃ') or {
-    println('Entry not found!')
-    return
-  }
-  println('Read analysis for つぃ')
-  println("- root_frequency   : ${analysis_data.root_frequency}")
-  println("- root_note        : ${analysis_data.root_note}")
-  println("- confidence       : ${analysis_data.confidence}" )
-  println("- pitch_mark_count : ${analysis_data.pitch_mark_count}")
-  println("- pitch_marks      : ${analysis_data.pitch_marks[..10]}")
-  println("- average_volume   : ${analysis_data.average_volume}")
-  println("- peak             : ${analysis_data.peak}")
-  println("- attack_start     : ${analysis_data.attack_start}")
-  println("- release_start    : ${analysis_data.release_start}")
-  println("- loop_start       : ${analysis_data.loop_start}")
-  println("- loop_end         : ${analysis_data.loop_end}")
+  println('Read metadata for つぃ')
+  println("- root_frequency   : ${voice_sample.metadata.root_frequency}")
+  println("- root_note        : ${voice_sample.metadata.root_note}")
+  println("- confidence       : ${voice_sample.metadata.confidence}" )
+  println("- pitch_mark_count : ${voice_sample.metadata.pitch_mark_count}")
+  println("- pitch_marks      : ${voice_sample.metadata.pitch_marks[..10]}")
+  println("- average_volume   : ${voice_sample.metadata.average_volume}")
+  println("- peak             : ${voice_sample.metadata.peak}")
+  println("- attack_start     : ${voice_sample.metadata.attack_start}")
+  println("- release_start    : ${voice_sample.metadata.release_start}")
+  println("- loop_start       : ${voice_sample.metadata.loop_start}")
+  println("- loop_end         : ${voice_sample.metadata.loop_end}")
   println("---------------------------------------------------------------")
 }

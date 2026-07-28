@@ -31,8 +31,8 @@ pub mut:
   analysis_size u64
 }
 
-pub struct VoiceAnalysis {
-pub:
+pub struct VoiceMetadata {
+pub mut:
 	root_frequency f32
 	root_note u8
 	confidence u8

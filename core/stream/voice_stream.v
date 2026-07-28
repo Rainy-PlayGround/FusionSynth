@@ -3,21 +3,24 @@ module stream
 import core.ring_buffer
 import voice
 import processor
-import core.formats.pcm
 
 pub struct VoiceAudioStream {
 pub mut:
-	phoneme        voidptr
-	phoneme_name   string
-	phoneme_offset u64
-	format				 string
-	ring_buffer 	 ring_buffer.RingBuffer
-	channels    	 int
-	sample_rate 	 int
-	eof         	 bool
-	stream_end		 bool
-	total_read  	 u64 // INFO: Tracks overall progress for timing calculations
-	chain_processor []processor.ProcessorType
+  sample            voice.VoiceSample
+  playback_state    PlaybackState
+  playback_pos      u32
+  loop_pos          u32
+  release_requested bool
+  ring_buffer       ring_buffer.RingBuffer
+  stream_end        bool
+	chain_processor   []processor.ProcessorType
+}
+
+pub enum PlaybackState {
+  attack
+  loop
+  release
+  finished
 }
 
 pub fn voice_input_processor(mut samples []f32, mut s VoiceAudioStream) {
@@ -70,52 +73,53 @@ pub fn voice_stream_callback(buffer &f32, num_frames int, num_channels int, user
 	}
 }
 
-pub fn phoneme_refill_stream(mut s VoiceAudioStream) {
-	mut rebuild_voice := &voice.VoiceBank(s.phoneme)
-	if s.eof {
-		return
-	}
+pub fn voice_refill_stream(mut s VoiceAudioStream) {
+  if s.stream_end {
+    return
+  }
 
-	available := s.ring_buffer.available_write()
-	if available < 1024 {
-		return
-	}
+  available := s.ring_buffer.available_write()
 
-	// INFO: 1 sample = 2 bytes (16-bit)
-	samples_to_read := if available > 4096 { 4096 } else { available }
-	bytes_to_read := samples_to_read * 2
+  if available == 0 {
+    return
+  }
 
-	mut raw := []u8{len: bytes_to_read}
-	
-	bytes_read := rebuild_voice.read_entry_at(mut raw, s.phoneme_name, s.phoneme_offset) or {
-		s.eof = true
-		return
-	}
+  mut output := []f32{cap: available}
 
-	if bytes_read <= 0 {
-		s.eof = true
-		return
-	}
+  for output.len < available {
+    match s.playback_state {
+      .attack {
+        output << s.sample.pcm[s.playback_pos]
+        s.playback_pos++
+        if s.playback_pos >= s.sample.metadata.loop_start {
+          s.loop_pos = s.sample.metadata.loop_start
+          s.playback_state = .loop
+        }
+      }
+      .loop {
+        output << s.sample.pcm[s.loop_pos]
+        s.loop_pos++
+        if s.loop_pos >= s.sample.metadata.loop_end {
+          s.loop_pos = s.sample.metadata.loop_start
+        }
+        if s.release_requested {
+          s.playback_pos = s.sample.metadata.release_start
+          s.playback_state = .release
+        }
+      }
+      .release {
+        output << s.sample.pcm[s.playback_pos]
+        s.playback_pos++
+        if s.playback_pos >= u32(s.sample.pcm.len) {
+          s.playback_state = .finished
+        }
+      }
+      .finished {
+        s.stream_end = true
+        break
+      }
+    }
+  }
 
-	// INFO: Decode PCM16 bytes directly into an f32 slice
-	mut decoded := []f32{}
-	match s.format {
-		"s16le" {
-			decoded = pcm.s16le_decoder(raw, bytes_read)
-		}
-		"s24le" {
-			decoded = pcm.s24le_decoder(raw, bytes_read)
-		}
-		"s32le" {
-			decoded = pcm.s32le_decoder(raw, bytes_read)
-		}
-		"f32le" {
-			decoded = pcm.f32le_decoder(raw, bytes_read)
-		}
-		else {}
-	}
-
-	written := s.ring_buffer.write(decoded)
-	s.phoneme_offset += u64(bytes_to_read)
-	s.total_read += u64(written)
+  s.ring_buffer.write(output)
 }

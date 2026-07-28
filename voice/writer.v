@@ -4,9 +4,16 @@ import os
 import core.formats.wav
 
 struct BuildEntry {
-  phoneme_name string
   pcm          []u8
-  analysis     VoiceAnalysis
+  metadata     VoiceMetadata
+}
+
+const preconfig_data = {
+  'あ': [1323, 4892, 23702, 27442],
+  'い': [1764, 6174, 47205, 51615],
+  'う': [1323, 4831, 30033, 34714],
+  'え': [1323, 6696, 25658, 30073],
+  'お': [1323, 5680, 28018, 32439]
 }
 
 pub fn create_voice_bank(output string, files []string) ! {
@@ -106,33 +113,45 @@ pub fn create_voice_bank(output string, files []string) ! {
 
     mut pcm := []u8{len: wav_hdr.data_size}
 
-    logger.debug("Read PCM for phoneme: [${voice_name}] (${i + 1}/${total_files})")
+    logger.debug("Read PCM for voice phoneme: [${voice_name}] (${i + 1}/${total_files})")
     wav_file.read(mut pcm)!
 
-    logger.debug("Analysing note and pitch for phoneme: [${voice_name}] (${i + 1}/${total_files})")
-    analysis := analyze_voice(
+    logger.debug("Analysing note and pitch for voice  phoneme: [${voice_name}] (${i + 1}/${total_files})")
+    mut analysis := analyze_voice(
       pcm,
       wav_hdr.sample_rate,
       global_pcm_format
     )!
     logger.debug("Analysis results: ")
-    logger.debug("- root_frequency   : ${analysis.root_frequency} ")
-    logger.debug("- root_note        : ${analysis.root_note} ")
-    logger.debug("- confidence       : ${analysis.confidence} ")
-    logger.debug("- pitch_mark_count : ${analysis.pitch_mark_count} ")
-    logger.debug("- pitch_marks      : ${analysis.pitch_marks[0..5]} ")
-    logger.debug("- average_volume   : ${analysis.average_volume}")
-    logger.debug("- peak             : ${analysis.peak}")
-    logger.debug("- attack_start     : ${analysis.attack_start}")
-    logger.debug("- release_start    : ${analysis.release_start}")
-    logger.debug("- loop_start       : ${analysis.loop_start}")
-    logger.debug("- loop_end         : ${analysis.loop_end}")
+    logger.debug("- root_frequency              : ${analysis.root_frequency} ")
+    logger.debug("- root_note                   : ${analysis.root_note} ")
+    logger.debug("- confidence                  : ${analysis.confidence} ")
+    logger.debug("- pitch_mark_count            : ${analysis.pitch_mark_count} ")
+    logger.debug("- pitch_marks                 : ${analysis.pitch_marks[0..5]} ")
+    logger.debug("- average_volume              : ${analysis.average_volume}")
+    logger.debug("- peak                        : ${analysis.peak}")
+    logger.debug("---------------------------------------------------------------")
+    logger.debug("- attack_start                : ${analysis.attack_start}")
+    logger.debug("- release_start               : ${analysis.release_start}")
+    logger.debug("- loop_start                  : ${analysis.loop_start}")
+    logger.debug("- loop_end                    : ${analysis.loop_end}")
     logger.debug("---------------------------------------------------------------")
 
+    if manual_adjust := preconfig_data[voice_name] {
+      analysis.attack_start = u32(manual_adjust[0])
+      analysis.loop_start = u32(manual_adjust[1])
+      analysis.loop_end = u32(manual_adjust[2])
+      analysis.release_start = u32(manual_adjust[3])
+      logger.debug("- (manual) attack_start     : ${analysis.attack_start}")
+      logger.debug("- (manual) release_start    : ${analysis.release_start}")
+      logger.debug("- (manual) loop_start       : ${analysis.loop_start}")
+      logger.debug("- (manual) loop_end         : ${analysis.loop_end}")
+      logger.debug("---------------------------------------------------------------")
+    }
+
     build_entries << BuildEntry{
-      phoneme_name: voice_name
       pcm: pcm
-      analysis: analysis
+      metadata: analysis
     }
   }
 
@@ -141,24 +160,24 @@ pub fn create_voice_bank(output string, files []string) ! {
   mut current_offset := data_start
   for i, be in build_entries {
     out.seek(i64(current_offset),.start)!
-    out.write_le(be.analysis.root_frequency)!
-    out.write([be.analysis.root_note])!
-    out.write([be.analysis.confidence])!
-    out.write_le(be.analysis.average_volume)!
-    out.write_le(be.analysis.peak)!
-    out.write_le(be.analysis.attack_start)!
-    out.write_le(be.analysis.release_start)!
-    out.write_le(be.analysis.loop_start)!
-    out.write_le(be.analysis.loop_end)!
-    out.write_le(be.analysis.pitch_mark_count)!
+    out.write_le(be.metadata.root_frequency)!
+    out.write([be.metadata.root_note])!
+    out.write([be.metadata.confidence])!
+    out.write_le(be.metadata.average_volume)!
+    out.write_le(be.metadata.peak)!
+    out.write_le(be.metadata.attack_start)!
+    out.write_le(be.metadata.release_start)!
+    out.write_le(be.metadata.loop_start)!
+    out.write_le(be.metadata.loop_end)!
+    out.write_le(be.metadata.pitch_mark_count)!
 
-    for mark in be.analysis.pitch_marks {
+    for mark in be.metadata.pitch_marks {
       out.write_le(mark)!
     }
 
     entries[i].analysis_offset = current_offset
     entries[i].analysis_size =
-      u64(10 + be.analysis.pitch_marks.len * 4)
+      u64(10 + be.metadata.pitch_marks.len * 4)
     current_offset += entries[i].analysis_size
   }
 
