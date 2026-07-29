@@ -74,49 +74,143 @@ fn hz_to_note(freq f32) u8 {
 	return u8(math.round(note))
 }
 
-fn detect_pitch_marks(samples []f32, sample_rate int, root_frequency f32) []u32 {
-	if root_frequency <= 0 {
-		return []u32{}
-	}
-	period := int(f32(sample_rate) / root_frequency)
-	if period <= 0 {
-		return []u32{}
+fn local_period_estimate(samples []f32, center int, expected_period int) (int, f64) {
+	if expected_period <= 1 {
+		return expected_period, 0
 	}
 
-	search_radius := period / 4
-	mut marks := []u32{}
-	mut estimate := period / 2
-
-	for estimate < samples.len {
-		start := if estimate > search_radius {
-			estimate - search_radius
-		} else {
-			0
-		}
-
-		end := if estimate + search_radius < samples.len {
-			estimate + search_radius
-		} else {
-			samples.len - 1
-		}
-
-		mut best := estimate
-		mut best_amp := f32(0)
-
-		for i := start; i <= end; i++ {
-			amp := math.abs(samples[i])
-
-			if amp > best_amp {
-				best_amp = amp
-				best = i
-			}
-		}
-
-		marks << u32(best)
-		estimate += period
+	mut band := expected_period / 5
+	if band < 2 {
+		band = 2
 	}
 
-	return marks
+	min_period := if expected_period - band > 1 { expected_period - band } else { 1 }
+	max_period := expected_period + band
+
+
+	window := expected_period * 2
+	mut start := center - window / 2
+	if start < 0 {
+		start = 0
+	}
+	mut end := start + window
+	if end > samples.len {
+		end = samples.len
+		start = if end - window > 0 { end - window } else { 0 }
+	}
+	size := end - start
+	if size <= max_period + 1 {
+		return expected_period, 0
+	}
+
+	mut average := f64(0)
+	for i in start .. end {
+		average += samples[i]
+	}
+	average /= size
+
+	mut norm := f64(0)
+	for i := 0; i < size; i++ {
+		v := f64(samples[start + i]) - average
+		norm += v * v
+	}
+
+	if norm <= 0 {
+		return expected_period, 0
+	}
+
+	mut best_period := 0
+	mut best_score := f64(0)
+
+	for period := min_period; period <= max_period; period++ {
+		if period >= size {
+			continue
+		}
+		mut score := f64(0)
+		for i := 0; i < size - period; i++ {
+			a := f64(samples[start + i]) - average
+			b := f64(samples[start + i + period]) - average
+			score += a * b
+		}
+		if score > best_score {
+			best_score = score
+			best_period = period
+		}
+	}
+
+	if best_period == 0 {
+		return expected_period, 0
+	}
+
+	confidence := best_score / norm
+	return best_period, confidence
+}
+
+fn best_shape_match(samples []f32, template_center int, half_template int, search_start int, search_end int) (int, f64) {
+	t_start := template_center - half_template
+	t_end := template_center + half_template
+
+	if t_start < 0 || t_end >= samples.len {
+		return template_center, -1
+	}
+
+	mut template_energy := f64(0)
+	for i := -half_template; i <= half_template; i++ {
+		v := f64(samples[template_center + i])
+		template_energy += v * v
+	}
+	if template_energy <= 0 {
+		return template_center, -1
+	}
+
+	mut best_pos := template_center
+	mut best_score := f64(-1)
+
+	for pos := search_start; pos <= search_end; pos++ {
+		c_start := pos - half_template
+		c_end := pos + half_template
+		if c_start < 0 || c_end >= samples.len {
+			continue
+		}
+
+		mut dot := f64(0)
+		mut cand_energy := f64(0)
+		for i := -half_template; i <= half_template; i++ {
+			tv := f64(samples[template_center + i])
+			cv := f64(samples[pos + i])
+			dot += tv * cv
+			cand_energy += cv * cv
+		}
+
+		if cand_energy <= 0 {
+			continue
+		}
+
+		score := dot / math.sqrt(template_energy * cand_energy)
+
+		if score > best_score {
+			best_score = score
+			best_pos = pos
+		}
+	}
+
+	return best_pos, best_score
+}
+
+fn amplitude_peak_in_range(samples []f32, start int, end int) (int, f32) {
+	mut best := start
+	mut best_amp := f32(0)
+
+	for i := start; i <= end; i++ {
+		amp := math.abs(samples[i])
+
+		if amp > best_amp {
+			best_amp = amp
+			best = i
+		}
+	}
+
+	return best, best_amp
 }
 
 fn decode_pcm(pcm_data []u8, pcm_format u16)![]f32 {
@@ -249,7 +343,6 @@ pub fn analyze_voice(pcm_data []u8, sample_rate int, pcm_format u16)!VoiceMetada
 	}
 
 	root := median(detected)
-	marks := detect_pitch_marks(samples, sample_rate, root)
 	average_volume := calculate_rms(samples)
 	peak := calculate_peak(samples)
 	attack := detect_attack_start(samples, sample_rate)
@@ -260,11 +353,8 @@ pub fn analyze_voice(pcm_data []u8, sample_rate int, pcm_format u16)!VoiceMetada
 		root_frequency: root
 		root_note: hz_to_note(root)
 		confidence: 100
-		pitch_mark_count: u32(marks.len)
-		pitch_marks: marks
 		average_volume: average_volume
 		peak: peak
-		attack_start: attack
 		release_start: release
 		loop_start: loop_start
 		loop_end: loop_end

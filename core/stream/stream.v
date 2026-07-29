@@ -108,7 +108,6 @@ pub fn refill_stream(mut s AudioStream) {
 		return
 	}
 
-	// INFO: Decode PCM16 bytes directly into an f32 slice
 	mut decoded := []f32{}
 	match s.format {
 		"s16le" {

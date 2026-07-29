@@ -32,7 +32,6 @@ pub mut:
 
 pub struct Equalizer {
 pub mut:
-	enable bool
   bands []RuntimeEQBand
 }
 

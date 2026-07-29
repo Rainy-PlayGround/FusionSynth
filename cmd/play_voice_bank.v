@@ -6,107 +6,148 @@ import time
 import core.stream
 import core.ring_buffer
 import voice
+import voice.note as voice_note
 
-fn play_phoneme(mut s stream.VoiceAudioStream, mut bank voice.VoiceBank, name string) {
-  sample := bank.load_voice_sample(name) or {
-    println('Cannot load ${name}: ${err}')
-    return
-  }
-
-  println('Loaded ${name}')
-  println("- root_frequency   : ${sample.metadata.root_frequency}")
-  println("- root_note        : ${sample.metadata.root_note}")
-  println("- confidence       : ${sample.metadata.confidence}" )
-  println("- pitch_mark_count : ${sample.metadata.pitch_mark_count}")
-  println("- pitch_marks      : ${sample.metadata.pitch_marks[..10]}")
-  println("- average_volume   : ${sample.metadata.average_volume}")
-  println("- peak             : ${sample.metadata.peak}")
-  println("- attack_start     : ${sample.metadata.attack_start}")
-  println("- release_start    : ${sample.metadata.release_start}")
-  println("- loop_start       : ${sample.metadata.loop_start}")
-  println("- loop_end         : ${sample.metadata.loop_end}")
-
-  s.sample = sample
-  s.playback_state = .attack
-  s.playback_pos = 0
-  s.loop_pos = sample.metadata.loop_start
-  s.release_requested = false
-  s.stream_end = false
+struct VoiceNote {
+	phoneme string
+	note    u8
+	duration time.Duration
+	silence bool
 }
 
+// Helper constructor for normal phoneme
+fn phoneme(name string, note u8, duration time.Duration) VoiceNote {
+	return VoiceNote{
+		phoneme: name
+		note: note
+		duration: duration
+		silence: false
+	}
+}
+
+
+// Helper constructor for silence
+fn rest(duration time.Duration) VoiceNote {
+	return VoiceNote{
+		duration: duration
+		silence: true
+	}
+}
+
+fn play_phoneme(mut s stream.VoiceAudioStream, mut bank voice.VoiceBank, note VoiceNote) {
+	sample := bank.load_voice_sample(note.phoneme) or {
+		println('Cannot load ${note.phoneme}: ${err}')
+		return
+	}
+
+	println('Loaded ${note.phoneme}')
+
+	s.sample = sample
+
+	// clear pitch cache
+	s.pitched_pcm.clear()
+
+	s.playback_state = .attack
+	s.playback_pos = 0
+	s.loop_pos = sample.metadata.loop_start
+
+	s.release_requested = false
+	s.stream_end = false
+
+	s.target_note = note.note
+}
+
+
+fn play_silence(mut s stream.VoiceAudioStream, duration time.Duration, sample_rate u32) {
+	s.sample = voice.VoiceSample{}
+
+	s.pitched_pcm = []f32{
+		len: int(u64(duration.milliseconds())* u64(sample_rate) / 1000)
+	}
+
+	s.playback_state = .attack
+	s.playback_pos = 0
+	s.loop_pos = 0
+
+	s.release_requested = false
+	s.stream_end = false
+}
+
+fn play_next(mut s stream.VoiceAudioStream, mut bank voice.VoiceBank, note VoiceNote, sample_rate u32) {
+	if note.silence {
+		play_silence(mut s, note.duration, sample_rate)
+		return
+	}
+
+	play_phoneme(mut s, mut bank, note)
+}
+
+
 fn fsv_cli_play_voice_bank() {
-	mut phonemes_to_play := [
-		'あ', 'い', 'う', 'え', 'お'
+	mut sequence := [
+		phoneme('あ', voice_note.f4, 3000 * time.millisecond),
+		rest(500 * time.millisecond),
+		phoneme('い', voice_note.g4, 3000 * time.millisecond),
+		rest(500 * time.millisecond),
+		phoneme('う', voice_note.a4, 3000 * time.millisecond),
+		rest(500 * time.millisecond),
+		phoneme('え', voice_note.g4, 3000 * time.millisecond),
+		rest(500 * time.millisecond),
+		phoneme('お', voice_note.f4, 3000 * time.millisecond),
 	]
 
-  mut qvb := voice.open_voice_bank("teto.fsqv") or {
-    println('Failed to open bank: ${err}')
-    return
-  }
+	mut qvb := voice.open_voice_bank("teto.fsqv") or {
+		println('Failed to open bank: ${err}')
+		return
+	}
 
-  logger.info('[play_voice_bank] Phoneme Database Loaded: teto.fsqv')
-  logger.info('[play_voice_bank] Phoneme Database Sample Rate: ${qvb.sample_rate} Hz')
-  logger.info('[play_voice_bank] Phoneme Database Channels: ${qvb.channels}')
-  logger.info('[play_voice_bank] Phoneme Database Format: ${qvb.bits_per_sample}-bit PCM')
+	mut a_stream := stream.VoiceAudioStream{
+		ring_buffer: ring_buffer.new_ring_buffer(65536)
+		stream_end: true
+		playback_state: .finished
+	}
 
-  mut a_stream := stream.VoiceAudioStream{
-    ring_buffer: ring_buffer.new_ring_buffer(65536)
-    stream_end: true
-    playback_state: .finished
-    playback_pos: 0
-    loop_pos: 0
-    release_requested: false
-  }
+	audio.setup(
+		sample_rate: int(qvb.sample_rate)
+		num_channels: int(qvb.channels)
+		stream_userdata_cb: stream.voice_stream_callback
+		user_data: voidptr(&a_stream)
+	)
 
-  audio.setup(
-    sample_rate: int(qvb.sample_rate)
-    num_channels: int(qvb.channels)
-    stream_userdata_cb: stream.voice_stream_callback
-    user_data: voidptr(&a_stream)
-  )
+	mut sequence_index := 0
+	play_next(mut a_stream, mut qvb, sequence[sequence_index], qvb.sample_rate)
+	sequence_index++
 
-  first := phonemes_to_play.first()
-  play_phoneme(mut a_stream, mut qvb, first)
- 	phonemes_to_play.delete(0)
+	mut note_start := time.now()
+	for {
+		stream.voice_refill_stream(mut a_stream)
 
-  stream.voice_refill_stream(mut a_stream)
-  logger.info('[play_voice_bank] Add phoneme name to play queue: ' + first)
+		if !a_stream.release_requested && time.since(note_start) > sequence[sequence_index - 1].duration {
+			a_stream.release_requested = true
+		}
 
-  // Setup a timer to simulate holding down a key
-  mut note_on_time := time.now()
-  note_duration := 3000 * time.millisecond 
+		if a_stream.stream_end && sequence_index < sequence.len {
+			play_next(mut a_stream, mut qvb, sequence[sequence_index], qvb.sample_rate)
+			logger.info('Playing next sequence item')
+			note_start = time.now()
+			sequence_index++
+		}
 
-  for {
-    stream.voice_refill_stream(mut a_stream)
-  
-    a_stream.ring_buffer.mutex.lock()
-    buffer_size := a_stream.ring_buffer.size
-    a_stream.ring_buffer.mutex.unlock()
+		a_stream.ring_buffer.mutex.lock()
+		buffer_size := a_stream.ring_buffer.size
+		a_stream.ring_buffer.mutex.unlock()
 
-    if !a_stream.release_requested && time.since(note_on_time) > note_duration {
-      a_stream.release_requested = true
-      logger.info('Releasing phoneme (triggering tail/release phase)...')
-    }
+		if a_stream.stream_end && buffer_size == 0 && sequence_index >= sequence.len {
+			break
+		}
 
-    if a_stream.stream_end && phonemes_to_play.len != 0 {
-      next := phonemes_to_play.first()
-      phonemes_to_play.delete(0)
-      play_phoneme(mut a_stream, mut qvb, next)
-      logger.info('[play_voice_bank] Add phoneme name to play queue: ' + next)
-      note_on_time = time.now()
-    }
+		time.sleep(2 * time.millisecond)
+	}
 
-    if a_stream.stream_end && buffer_size == 0 && phonemes_to_play.len == 0 {
-      break
-    }
+	time.sleep(200 * time.millisecond)
 
-    time.sleep(2 * time.millisecond)
-  }
+	audio.shutdown()
+	qvb.close()
 
-  time.sleep(200 * time.millisecond)
-  logger.info('Sequence finished!')
-
-  audio.shutdown()
-  qvb.close()
-  logger.info('Done!')
+	logger.info('Done!')
 }

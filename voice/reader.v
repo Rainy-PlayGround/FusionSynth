@@ -215,9 +215,6 @@ pub fn (mut b VoiceBank) read_voice_metadata(name string) !VoiceMetadata {
 	peak := unsafe { *(&f32(&peak_bits)) }
 
 	b.file.read(mut u32_buf)!
-  attack_start := binary.little_endian_u32(u32_buf)
-
-	b.file.read(mut u32_buf)!
   release_start := binary.little_endian_u32(u32_buf)
 
 	b.file.read(mut u32_buf)!
@@ -226,25 +223,12 @@ pub fn (mut b VoiceBank) read_voice_metadata(name string) !VoiceMetadata {
 	b.file.read(mut u32_buf)!
   loop_end := binary.little_endian_u32(u32_buf)
 
-	b.file.read(mut u32_buf)!
-  count := binary.little_endian_u32(u32_buf)
-
-  mut marks := []u32{}
-
-  for _ in 0 .. count {
-    b.file.read(mut u32_buf)!
-    marks << binary.little_endian_u32(u32_buf)
-  }
-
   return VoiceMetadata{
     root_frequency: root_frequency
     root_note: root_note
     confidence: confidence
-    pitch_mark_count: count
-    pitch_marks: marks
 		average_volume: average_volume
 		peak: peak
-		attack_start: attack_start
 		release_start: release_start
 		loop_start: loop_start
 		loop_end: loop_end

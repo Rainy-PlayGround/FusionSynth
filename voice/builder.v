@@ -9,11 +9,11 @@ struct BuildEntry {
 }
 
 const preconfig_data = {
-  'あ': [1323, 4892, 23702, 27442],
-  'い': [1764, 6174, 47205, 51615],
-  'う': [1323, 4831, 30033, 34714],
-  'え': [1323, 6696, 25658, 30073],
-  'お': [1323, 5680, 28018, 32439]
+  'あ': [4892, 23702, 27442],
+  'い': [6174, 47205, 51615],
+  'う': [4831, 30033, 34714],
+  'え': [6696, 25658, 30073],
+  'お': [5680, 28018, 32439]
 }
 
 pub fn create_voice_bank(output string, files []string) ! {
@@ -126,23 +126,18 @@ pub fn create_voice_bank(output string, files []string) ! {
     logger.debug("- root_frequency              : ${analysis.root_frequency} ")
     logger.debug("- root_note                   : ${analysis.root_note} ")
     logger.debug("- confidence                  : ${analysis.confidence} ")
-    logger.debug("- pitch_mark_count            : ${analysis.pitch_mark_count} ")
-    logger.debug("- pitch_marks                 : ${analysis.pitch_marks[0..5]} ")
     logger.debug("- average_volume              : ${analysis.average_volume}")
     logger.debug("- peak                        : ${analysis.peak}")
     logger.debug("---------------------------------------------------------------")
-    logger.debug("- attack_start                : ${analysis.attack_start}")
     logger.debug("- release_start               : ${analysis.release_start}")
     logger.debug("- loop_start                  : ${analysis.loop_start}")
     logger.debug("- loop_end                    : ${analysis.loop_end}")
     logger.debug("---------------------------------------------------------------")
 
     if manual_adjust := preconfig_data[voice_name] {
-      analysis.attack_start = u32(manual_adjust[0])
-      analysis.loop_start = u32(manual_adjust[1])
-      analysis.loop_end = u32(manual_adjust[2])
-      analysis.release_start = u32(manual_adjust[3])
-      logger.debug("- (manual) attack_start     : ${analysis.attack_start}")
+      analysis.loop_start = u32(manual_adjust[0])
+      analysis.loop_end = u32(manual_adjust[1])
+      analysis.release_start = u32(manual_adjust[2])
       logger.debug("- (manual) release_start    : ${analysis.release_start}")
       logger.debug("- (manual) loop_start       : ${analysis.loop_start}")
       logger.debug("- (manual) loop_end         : ${analysis.loop_end}")
@@ -165,19 +160,12 @@ pub fn create_voice_bank(output string, files []string) ! {
     out.write([be.metadata.confidence])!
     out.write_le(be.metadata.average_volume)!
     out.write_le(be.metadata.peak)!
-    out.write_le(be.metadata.attack_start)!
     out.write_le(be.metadata.release_start)!
     out.write_le(be.metadata.loop_start)!
     out.write_le(be.metadata.loop_end)!
-    out.write_le(be.metadata.pitch_mark_count)!
-
-    for mark in be.metadata.pitch_marks {
-      out.write_le(mark)!
-    }
 
     entries[i].analysis_offset = current_offset
-    entries[i].analysis_size =
-      u64(10 + be.metadata.pitch_marks.len * 4)
+    entries[i].analysis_size = u64(26)
     current_offset += entries[i].analysis_size
   }
 

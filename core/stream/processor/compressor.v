@@ -16,7 +16,6 @@ pub enum DetectorMode {
 
 pub struct Compressor {
 pub mut:
-  enable bool
   threshold f32 // linear (0.0~1.0)
   ratio     f32
 	attack  	f32

@@ -74,7 +74,6 @@ pub fn ms_to_samples(ms f32, sample_rate int) int {
 
 pub struct Reverb {
 pub mut:
-  enable bool
   combs []CombFilter
   diffuser AllPass
   mix f32

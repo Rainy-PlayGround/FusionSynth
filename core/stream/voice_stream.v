@@ -7,10 +7,19 @@ import processor
 pub struct VoiceAudioStream {
 pub mut:
   sample            voice.VoiceSample
+  pitched_pcm       []f32
+
+  loop_start        u32
+  loop_end          u32
+  release_start     u32
+
+  target_note       u8
+
   playback_state    PlaybackState
   playback_pos      u32
   loop_pos          u32
   release_requested bool
+
   ring_buffer       ring_buffer.RingBuffer
   stream_end        bool
 	chain_processor   []processor.ProcessorType
@@ -55,7 +64,6 @@ pub fn voice_stream_callback(buffer &f32, num_frames int, num_channels int, user
 
 	// INFO: Read from our thread-safe ring buffer
 	mut samples_read := s.ring_buffer.read(mut dest, total_samples)
-	mut debug_sample := []f32{len: total_samples}
 
 	voice_input_processor(mut dest, mut s)
 
@@ -63,12 +71,10 @@ pub fn voice_stream_callback(buffer &f32, num_frames int, num_channels int, user
 	unsafe {
 		for i in 0 .. samples_read {
 			buffer[i] = dest[i]
-			debug_sample[i] = buffer[i]
 		}
 		// If we ran dry, fill the rest with silence
 		for i in samples_read .. total_samples {
 			buffer[i] = 0.0
-			debug_sample[i] = buffer[i]
 		}
 	}
 }
@@ -84,42 +90,10 @@ pub fn voice_refill_stream(mut s VoiceAudioStream) {
     return
   }
 
-  mut output := []f32{cap: available}
+  pitch_shifter(mut s)
 
-  for output.len < available {
-    match s.playback_state {
-      .attack {
-        output << s.sample.pcm[s.playback_pos]
-        s.playback_pos++
-        if s.playback_pos >= s.sample.metadata.loop_start {
-          s.loop_pos = s.sample.metadata.loop_start
-          s.playback_state = .loop
-        }
-      }
-      .loop {
-        output << s.sample.pcm[s.loop_pos]
-        s.loop_pos++
-        if s.loop_pos >= s.sample.metadata.loop_end {
-          s.loop_pos = s.sample.metadata.loop_start
-        }
-        if s.release_requested {
-          s.playback_pos = s.sample.metadata.release_start
-          s.playback_state = .release
-        }
-      }
-      .release {
-        output << s.sample.pcm[s.playback_pos]
-        s.playback_pos++
-        if s.playback_pos >= u32(s.sample.pcm.len) {
-          s.playback_state = .finished
-        }
-      }
-      .finished {
-        s.stream_end = true
-        break
-      }
-    }
-  }
+  // Generate raw voice from playback state
+  mut output := render_voice(mut s, s.pitched_pcm, available)
 
   s.ring_buffer.write(output)
 }

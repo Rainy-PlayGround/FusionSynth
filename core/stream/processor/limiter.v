@@ -4,7 +4,6 @@ import math
 
 pub struct Limiter {
 pub mut:
-  enable bool
   threshold f32
   ceiling f32
   attack f32

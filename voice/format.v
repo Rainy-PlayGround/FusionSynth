@@ -37,15 +37,10 @@ pub mut:
 	root_note u8
 	confidence u8
 
-	pitch_mark_count u32
-	pitch_marks []u32
-
 	average_volume f32
 	peak f32
 
-	attack_start u32
 	release_start u32
-
 	loop_start u32
 	loop_end u32
 }

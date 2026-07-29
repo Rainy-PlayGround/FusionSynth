@@ -2,7 +2,6 @@ module processor
 
 pub struct Volume {
 pub mut:
-  enable bool
   amount f32
 }
 
