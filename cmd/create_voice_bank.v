@@ -3,6 +3,19 @@ module cmd
 import os
 import voice
 
+const preconfig_data = {
+  // Basic vowels (あ-row)
+  'あ': [4892, 23702],
+  'い': [6174, 47205],
+  'う': [4831, 30033],
+  'え': [16193, 25658],
+  'お': [13205, 28041],
+
+  // K-row
+  'か': [10535, 40764],
+  'き': [13289, 40861],
+}
+
 fn fsv_cli_create_voice_bank() {
   dir_path := './rnd_fsvb'
   
@@ -20,7 +33,7 @@ fn fsv_cli_create_voice_bank() {
     }
   }
 
-  voice.create_voice_bank('teto.fsqv', new_file_list) or {
+  voice.create_voice_bank('teto.fsqv', new_file_list, preconfig_data) or {
     eprintln('failed to create bank: ${err}')
     return
   }

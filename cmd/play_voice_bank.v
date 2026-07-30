@@ -69,6 +69,9 @@ fn play_silence(mut s stream.VoiceAudioStream, duration time.Duration, sample_ra
 	s.playback_pos = 0
 	s.loop_pos = 0
 
+	s.loop_start = 0
+	s.loop_end = u32(s.pitched_pcm.len)
+
 	s.release_requested = false
 	s.stream_end = false
 }
@@ -85,15 +88,15 @@ fn play_next(mut s stream.VoiceAudioStream, mut bank voice.VoiceBank, note Voice
 
 fn fsv_cli_play_voice_bank() {
 	mut sequence := [
-		phoneme('あ', voice_note.f4, 3000 * time.millisecond),
+		phoneme('あ', voice_note.f4, 1000 * time.millisecond),
 		rest(500 * time.millisecond),
-		phoneme('い', voice_note.g4, 3000 * time.millisecond),
+		phoneme('あ', voice_note.g4, 1000 * time.millisecond),
 		rest(500 * time.millisecond),
-		phoneme('う', voice_note.a4, 3000 * time.millisecond),
+		phoneme('あ', voice_note.a4, 1000 * time.millisecond),
 		rest(500 * time.millisecond),
-		phoneme('え', voice_note.g4, 3000 * time.millisecond),
+		phoneme('あ', voice_note.g4, 1000 * time.millisecond),
 		rest(500 * time.millisecond),
-		phoneme('お', voice_note.f4, 3000 * time.millisecond),
+		phoneme('あ', voice_note.f4, 1000 * time.millisecond),
 	]
 
 	mut qvb := voice.open_voice_bank("teto.fsqv") or {
@@ -102,7 +105,7 @@ fn fsv_cli_play_voice_bank() {
 	}
 
 	mut a_stream := stream.VoiceAudioStream{
-		ring_buffer: ring_buffer.new_ring_buffer(65536)
+		ring_buffer: ring_buffer.new_ring_buffer(16384)
 		stream_end: true
 		playback_state: .finished
 	}
@@ -120,28 +123,35 @@ fn fsv_cli_play_voice_bank() {
 
 	mut note_start := time.now()
 	for {
-		stream.voice_refill_stream(mut a_stream)
+    stream.voice_refill_stream(mut a_stream)
 
-		if !a_stream.release_requested && time.since(note_start) > sequence[sequence_index - 1].duration {
-			a_stream.release_requested = true
-		}
+    if !a_stream.release_requested && time.since(note_start) > sequence[sequence_index - 1].duration {
+      a_stream.release_requested = true
+    }
 
-		if a_stream.stream_end && sequence_index < sequence.len {
-			play_next(mut a_stream, mut qvb, sequence[sequence_index], qvb.sample_rate)
-			logger.info('Playing next sequence item')
-			note_start = time.now()
-			sequence_index++
-		}
+    a_stream.ring_buffer.mutex.lock()
+    buffer_size := a_stream.ring_buffer.size
+    a_stream.ring_buffer.mutex.unlock()
 
-		a_stream.ring_buffer.mutex.lock()
-		buffer_size := a_stream.ring_buffer.size
-		a_stream.ring_buffer.mutex.unlock()
+    if
+			a_stream.stream_end && 
+			sequence_index < sequence.len
+		{
+      play_next(mut a_stream, mut qvb, sequence[sequence_index], qvb.sample_rate)
+      note_start = time.now()
+      sequence_index++
+    }
 
-		if a_stream.stream_end && buffer_size == 0 && sequence_index >= sequence.len {
-			break
-		}
+    if
+			a_stream.stream_end && 
+			buffer_size == 0 && 
+			a_stream.playback_state == stream.PlaybackState.finished && 
+			sequence_index >= sequence.len
+		{
+      break
+    }
 
-		time.sleep(2 * time.millisecond)
+    time.sleep(2 * time.millisecond)
 	}
 
 	time.sleep(200 * time.millisecond)

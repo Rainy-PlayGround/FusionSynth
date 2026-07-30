@@ -35,7 +35,6 @@ fn fsv_cli_read_voice_bank() {
   println("- confidence       : ${voice_sample.metadata.confidence}" )
   println("- average_volume   : ${voice_sample.metadata.average_volume}")
   println("- peak             : ${voice_sample.metadata.peak}")
-  println("- release_start    : ${voice_sample.metadata.release_start}")
   println("- loop_start       : ${voice_sample.metadata.loop_start}")
   println("- loop_end         : ${voice_sample.metadata.loop_end}")
   println("---------------------------------------------------------------")

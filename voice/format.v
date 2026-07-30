@@ -3,8 +3,6 @@ module voice
 import os
 import log
 
-const logger = log.Log{}
-
 pub const magic = 'DLFSQVDB' // DeepLunaria FusionSynth Quick Voice Database
 pub const version = u32(1)
 
@@ -40,7 +38,6 @@ pub mut:
 	average_volume f32
 	peak f32
 
-	release_start u32
 	loop_start u32
 	loop_end u32
 }

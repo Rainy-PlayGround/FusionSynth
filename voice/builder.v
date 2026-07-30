@@ -1,6 +1,8 @@
 module voice
 
 import os
+import log
+
 import core.formats.wav
 
 struct BuildEntry {
@@ -8,15 +10,17 @@ struct BuildEntry {
   metadata     VoiceMetadata
 }
 
-const preconfig_data = {
-  'あ': [4892, 23702, 27442],
-  'い': [6174, 47205, 51615],
-  'う': [4831, 30033, 34714],
-  'え': [6696, 25658, 30073],
-  'お': [5680, 28018, 32439]
-}
+pub fn create_voice_bank(output string, files []string, preconfig_data map[string][]int) ! {
+  mut logger := log.Log{}
+  // Set the minimum logging level
+	logger.set_level(.debug)
 
-pub fn create_voice_bank(output string, files []string) ! {
+	// Define the path to your log file
+	logger.set_full_logpath('./analysis-res.log')
+
+	// Enable writing to the console as well
+	logger.log_to_console_too()
+
   if files.len == 0 {
     return error('Cannot create database: no input files provided')
   }
@@ -116,31 +120,43 @@ pub fn create_voice_bank(output string, files []string) ! {
     logger.debug("Read PCM for voice phoneme: [${voice_name}] (${i + 1}/${total_files})")
     wav_file.read(mut pcm)!
 
-    logger.debug("Analysing note and pitch for voice  phoneme: [${voice_name}] (${i + 1}/${total_files})")
-    mut analysis := analyze_voice(
-      pcm,
-      wav_hdr.sample_rate,
-      global_pcm_format
-    )!
-    logger.debug("Analysis results: ")
-    logger.debug("- root_frequency              : ${analysis.root_frequency} ")
-    logger.debug("- root_note                   : ${analysis.root_note} ")
-    logger.debug("- confidence                  : ${analysis.confidence} ")
-    logger.debug("- average_volume              : ${analysis.average_volume}")
-    logger.debug("- peak                        : ${analysis.peak}")
-    logger.debug("---------------------------------------------------------------")
-    logger.debug("- release_start               : ${analysis.release_start}")
-    logger.debug("- loop_start                  : ${analysis.loop_start}")
-    logger.debug("- loop_end                    : ${analysis.loop_end}")
-    logger.debug("---------------------------------------------------------------")
-
+    logger.debug("Analysing note and pitch for voice phoneme: [${voice_name}] (${i + 1}/${total_files})")
+    mut analysis := VoiceMetadata{}
     if manual_adjust := preconfig_data[voice_name] {
+      analysis = analyze_voice(
+        pcm,
+        wav_hdr.sample_rate,
+        global_pcm_format,
+        false
+      )!
       analysis.loop_start = u32(manual_adjust[0])
       analysis.loop_end = u32(manual_adjust[1])
-      analysis.release_start = u32(manual_adjust[2])
-      logger.debug("- (manual) release_start    : ${analysis.release_start}")
+      logger.debug("Analysis results: ")
+      logger.debug("- root_frequency              : ${analysis.root_frequency} ")
+      logger.debug("- root_note                   : ${analysis.root_note} ")
+      logger.debug("- confidence                  : ${analysis.confidence} ")
+      logger.debug("- average_volume              : ${analysis.average_volume}")
+      logger.debug("- peak                        : ${analysis.peak}")
+      logger.debug("---------------------------------------------------------------")
       logger.debug("- (manual) loop_start       : ${analysis.loop_start}")
       logger.debug("- (manual) loop_end         : ${analysis.loop_end}")
+      logger.debug("---------------------------------------------------------------")
+    } else {
+      analysis = analyze_voice(
+        pcm,
+        wav_hdr.sample_rate,
+        global_pcm_format,
+        true
+      )!
+      logger.debug("Analysis results: ")
+      logger.debug("- root_frequency              : ${analysis.root_frequency} ")
+      logger.debug("- root_note                   : ${analysis.root_note} ")
+      logger.debug("- confidence                  : ${analysis.confidence} ")
+      logger.debug("- average_volume              : ${analysis.average_volume}")
+      logger.debug("- peak                        : ${analysis.peak}")
+      logger.debug("---------------------------------------------------------------")
+      logger.debug("- loop_start                  : ${analysis.loop_start}")
+      logger.debug("- loop_end                    : ${analysis.loop_end}")
       logger.debug("---------------------------------------------------------------")
     }
 
@@ -160,12 +176,11 @@ pub fn create_voice_bank(output string, files []string) ! {
     out.write([be.metadata.confidence])!
     out.write_le(be.metadata.average_volume)!
     out.write_le(be.metadata.peak)!
-    out.write_le(be.metadata.release_start)!
     out.write_le(be.metadata.loop_start)!
     out.write_le(be.metadata.loop_end)!
 
     entries[i].analysis_offset = current_offset
-    entries[i].analysis_size = u64(26)
+    entries[i].analysis_size = u64(22)
     current_offset += entries[i].analysis_size
   }
 

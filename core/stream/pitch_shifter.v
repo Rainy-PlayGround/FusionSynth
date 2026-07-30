@@ -41,9 +41,6 @@ fn pitch_shifter(mut s VoiceAudioStream) {
   s.loop_end =
     u32(math.round(f64(s.sample.metadata.loop_end) * scale))
 
-  s.release_start =
-    u32(math.round(f64(s.sample.metadata.release_start) * scale))
-
   max := u32(new_len - 1)
 
   if s.loop_start > max {
@@ -52,9 +49,5 @@ fn pitch_shifter(mut s VoiceAudioStream) {
 
   if s.loop_end > max {
     s.loop_end = max
-  }
-
-  if s.release_start > max {
-    s.release_start = max
   }
 }
