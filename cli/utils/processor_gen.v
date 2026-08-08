@@ -1,8 +1,8 @@
-module cmd
+module utils
 
 import core.dsp
 
-fn eq_generator(sample_rate int) dsp.Equalizer {
+pub fn eq_generator(sample_rate int) dsp.Equalizer {
 	mut eq := dsp.Equalizer{
 		bands: [
 			dsp.RuntimeEQBand{
@@ -117,7 +117,7 @@ fn eq_generator(sample_rate int) dsp.Equalizer {
 	return eq
 }
 
-fn reverb_generator(sample_rate int) dsp.Reverb {
+pub fn reverb_generator(sample_rate int) dsp.Reverb {
 	return dsp.Reverb{
 		mix: 0.75      // much wetter
 		gain: 0.6      // drive the reverb harder
@@ -134,7 +134,7 @@ fn reverb_generator(sample_rate int) dsp.Reverb {
 	}
 }
 
-fn compressor_generator(sample_rate int) dsp.Compressor {
+pub fn compressor_generator(sample_rate int) dsp.Compressor {
 	return dsp.Compressor{
 		// Compress almost everything
 		threshold: 0.15
@@ -153,7 +153,7 @@ fn compressor_generator(sample_rate int) dsp.Compressor {
 	}
 }
 
-fn limiter_generator() dsp.Limiter {
+pub fn limiter_generator() dsp.Limiter {
 	return dsp.Limiter{
     threshold: 0.95
     ceiling: 0.90
@@ -163,7 +163,7 @@ fn limiter_generator() dsp.Limiter {
 	}
 }
 
-fn volume_generator() dsp.Volume {
+pub fn volume_generator() dsp.Volume {
 	return dsp.Volume {
 		amount: 1
 	}

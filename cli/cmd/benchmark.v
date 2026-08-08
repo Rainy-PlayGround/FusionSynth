@@ -4,6 +4,8 @@ import time
 import math
 import os
 
+import cli.utils
+
 import core.dsp
 import core.playback.audio as audio_playback
 import core.ring_buffer
@@ -36,23 +38,23 @@ fn fsv_cli_benchmark() {
 		match v {
 			"1" {
 				println('✓ Volume Processor')
-				processors_list << volume_generator()
+				processors_list << utils.volume_generator()
 			}
 			"2" {
 				println('✓ EQ Processor')
-				processors_list << eq_generator(sample_rate)
+				processors_list << utils.eq_generator(sample_rate)
 			}
 			"3" {
 				println('✓ Reverb Processor')
-				processors_list << reverb_generator(sample_rate)
+				processors_list << utils.reverb_generator(sample_rate)
 			}
 			"4" {
 				println('✓ Compressor Processor')
-				processors_list << compressor_generator(sample_rate)
+				processors_list << utils.compressor_generator(sample_rate)
 			}
 			"5" {
 				println('✓ Limiter Processor') 
-				processors_list << limiter_generator()
+				processors_list << utils.limiter_generator()
 			}
 			else {}
 		} 
