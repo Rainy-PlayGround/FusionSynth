@@ -37,3 +37,4 @@ test_bin
 test.v
 .gitignore
 *.patch
+out/

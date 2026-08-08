@@ -4,44 +4,22 @@ import log
 import os
 import core.ring_buffer
 import core.formats.pcm
-import processor
+import core.dsp
 import runtime
 
 pub struct AudioStream {
 pub mut:
-	file        		os.File
-	ring_buffer 		ring_buffer.RingBuffer
-	channels    		int
-	sample_rate 		int
-	format					string
-	eof         		bool
-	total_read  		u64 // INFO: Tracks overall progress for timing calculations
-	chain_processor []processor.ProcessorType
+	file        		 os.File
+	ring_buffer 		 ring_buffer.RingBuffer
+	channels    		 int
+	sample_rate 		 int
+	format					 string
+	eof         		 bool
+	total_read  		 u64 // INFO: Tracks overall progress for timing calculations
+	chain_processors []dsp.ProcessorType
 }
 
 const logger := log.Log{}
-
-pub fn input_processor(mut samples []f32, mut s AudioStream) {
-	for mut child_processor in s.chain_processor {
-		match child_processor {
-			processor.Volume {
-				processor.volume_processor(mut samples, child_processor)
-			}
-			processor.Equalizer {
-				processor.equalizer_processor(mut samples, mut child_processor)
-			}
-			processor.Reverb {
-				processor.reverb_processor(mut samples, mut child_processor)
-			}
-			processor.Compressor {
-				processor.compressor_processor(mut samples, mut child_processor)
-			}
-			processor.Limiter {
-				processor.limiter_processor(mut samples, mut child_processor)
-			}
-		}
-	}
-}
 
 // INFO: Sokol audio stream callback
 pub fn stream_callback(buffer &f32, num_frames int, num_channels int, user_data voidptr) {
@@ -55,7 +33,7 @@ pub fn stream_callback(buffer &f32, num_frames int, num_channels int, user_data 
 	mut samples_read := s.ring_buffer.read(mut dest, total_samples)
 	mut debug_sample := []f32{len: total_samples}
 
-	input_processor(mut dest, mut s)
+	dsp.process_audio_chain(mut dest, mut s.chain_processors)
 
 	// INFO: Copy to the destination pointer
 	unsafe {

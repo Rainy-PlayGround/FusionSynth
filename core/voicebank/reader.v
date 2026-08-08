@@ -7,7 +7,7 @@ import core.formats.pcm
 pub struct VoiceSample {
 pub:
   pcm []f32
-  metadata voice.VoiceMetadata
+  metadata VoiceMetadata
 }
 
 pub fn open_voice_bank(path string) !VoiceBank {

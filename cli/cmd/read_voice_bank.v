@@ -1,9 +1,9 @@
 module cmd
 
-import voice
+import core.voicebank
 
 fn fsv_cli_read_voice_bank() {
-  mut voice_bank_load := voice.open_voice_bank("teto.fsqv") or {
+  mut voice_bank_load := voicebank.open_voice_bank("teto.fsqv") or {
     println('Failed to open bank: ${err}')
     return
   }

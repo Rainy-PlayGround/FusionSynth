@@ -3,10 +3,10 @@ module cmd
 import sokol.audio
 import time
 
-import core.stream
+import core.playback.voice as voice_playback
 import core.ring_buffer
-import voice
-import voice.note as voice_note
+import core.voicebank
+import core.voicebank.note as voice_note
 
 struct VoiceNote {
 	phoneme string
@@ -34,7 +34,7 @@ fn rest(duration time.Duration) VoiceNote {
 	}
 }
 
-fn play_phoneme(mut s stream.VoiceAudioStream, mut bank voice.VoiceBank, note VoiceNote) {
+fn play_phoneme(mut s voice_playback.VoiceAudioStream, mut bank voicebank.VoiceBank, note VoiceNote) {
 	sample := bank.load_voice_sample(note.phoneme) or {
 		println('Cannot load ${note.phoneme}: ${err}')
 		return
@@ -58,8 +58,8 @@ fn play_phoneme(mut s stream.VoiceAudioStream, mut bank voice.VoiceBank, note Vo
 }
 
 
-fn play_silence(mut s stream.VoiceAudioStream, duration time.Duration, sample_rate u32) {
-	s.sample = voice.VoiceSample{}
+fn play_silence(mut s voice_playback.VoiceAudioStream, duration time.Duration, sample_rate u32) {
+	s.sample = voicebank.VoiceSample{}
 
 	s.pitched_pcm = []f32{
 		len: int(u64(duration.milliseconds())* u64(sample_rate) / 1000)
@@ -76,7 +76,7 @@ fn play_silence(mut s stream.VoiceAudioStream, duration time.Duration, sample_ra
 	s.stream_end = false
 }
 
-fn play_next(mut s stream.VoiceAudioStream, mut bank voice.VoiceBank, note VoiceNote, sample_rate u32) {
+fn play_next(mut s voice_playback.VoiceAudioStream, mut bank voicebank.VoiceBank, note VoiceNote, sample_rate u32) {
 	if note.silence {
 		play_silence(mut s, note.duration, sample_rate)
 		return
@@ -99,12 +99,12 @@ fn fsv_cli_play_voice_bank() {
 		phoneme('あ', voice_note.f4, 1000 * time.millisecond),
 	]
 
-	mut qvb := voice.open_voice_bank("teto.fsqv") or {
+	mut qvb := voicebank.open_voice_bank("teto.fsqv") or {
 		println('Failed to open bank: ${err}')
 		return
 	}
 
-	mut a_stream := stream.VoiceAudioStream{
+	mut a_stream := voice_playback.VoiceAudioStream{
 		ring_buffer: ring_buffer.new_ring_buffer(16384)
 		stream_end: true
 		playback_state: .finished
@@ -113,7 +113,7 @@ fn fsv_cli_play_voice_bank() {
 	audio.setup(
 		sample_rate: int(qvb.sample_rate)
 		num_channels: int(qvb.channels)
-		stream_userdata_cb: stream.voice_stream_callback
+		stream_userdata_cb: voice_playback.voice_stream_callback
 		user_data: voidptr(&a_stream)
 	)
 
@@ -123,7 +123,7 @@ fn fsv_cli_play_voice_bank() {
 
 	mut note_start := time.now()
 	for {
-    stream.voice_refill_stream(mut a_stream)
+    voice_playback.voice_refill_stream(mut a_stream)
 
     if !a_stream.release_requested && time.since(note_start) > sequence[sequence_index - 1].duration {
       a_stream.release_requested = true
@@ -145,7 +145,7 @@ fn fsv_cli_play_voice_bank() {
     if
 			a_stream.stream_end && 
 			buffer_size == 0 && 
-			a_stream.playback_state == stream.PlaybackState.finished && 
+			a_stream.playback_state == voice_playback.PlaybackState.finished && 
 			sequence_index >= sequence.len
 		{
       break

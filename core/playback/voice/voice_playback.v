@@ -1,12 +1,16 @@
 module stream
 
 import core.ring_buffer
-import voice
-import processor
+import core.voicebank
+import core.dsp
+
+import log
+
+const logger := log.Log{}
 
 pub struct VoiceAudioStream {
 pub mut:
-  sample            voice.VoiceSample
+  sample            voicebank.VoiceSample
   pitched_pcm       []f32
 
   loop_start        u32
@@ -21,7 +25,7 @@ pub mut:
 
   ring_buffer       ring_buffer.RingBuffer
   stream_end        bool
-	chain_processor   []processor.ProcessorType
+	chain_processors   []dsp.ProcessorType
 }
 
 pub enum PlaybackState {
@@ -29,28 +33,6 @@ pub enum PlaybackState {
   loop
   release
   finished
-}
-
-pub fn voice_input_processor(mut samples []f32, mut s VoiceAudioStream) {
-	for mut child_processor in s.chain_processor {
-		match child_processor {
-			processor.Volume {
-				processor.volume_processor(mut samples, child_processor)
-			}
-			processor.Equalizer {
-				processor.equalizer_processor(mut samples, mut child_processor)
-			}
-			processor.Reverb {
-				processor.reverb_processor(mut samples, mut child_processor)
-			}
-			processor.Compressor {
-				processor.compressor_processor(mut samples, mut child_processor)
-			}
-			processor.Limiter {
-				processor.limiter_processor(mut samples, mut child_processor)
-			}
-		}
-	}
 }
 
 // INFO: Sokol audio stream callback
@@ -64,7 +46,7 @@ pub fn voice_stream_callback(buffer &f32, num_frames int, num_channels int, user
 	// INFO: Read from our thread-safe ring buffer
 	mut samples_read := s.ring_buffer.read(mut dest, total_samples)
 	mut debug_sample := []f32{len: total_samples}
-	voice_input_processor(mut dest, mut s)
+	dsp.process_audio_chain(mut dest, mut s.chain_processors)
 
 	// INFO: Copy to the destination pointer
 	unsafe {

@@ -4,8 +4,8 @@ import time
 import math
 import os
 
-import core.stream.processor
-import core.stream
+import core.dsp
+import core.playback.audio as audio_playback
 import core.ring_buffer
 
 const benchmark_duration_sec = 30
@@ -30,7 +30,7 @@ fn fsv_cli_benchmark() {
 	processor_option := os.args[2..]
 	println('Enabled Processors: ${processor_option.len}')
 
-  mut processors_list := []processor.ProcessorType{}
+  mut processors_list := []dsp.ProcessorType{}
 	
   for _, v in processor_option {
 		match v {
@@ -60,11 +60,11 @@ fn fsv_cli_benchmark() {
 	println('')
 
 	// Create a dummy stream with your real processors
-	mut a_stream := stream.AudioStream{
+	mut a_stream := audio_playback.AudioStream{
 		ring_buffer: ring_buffer.new_ring_buffer(1024)
 		channels: channels
 		sample_rate: sample_rate
-		chain_processor: processors_list
+		chain_processors: processors_list
 		format: 'f32le'
 	}
 
@@ -88,7 +88,7 @@ fn fsv_cli_benchmark() {
 	// Warm-up (process a few blocks in-place)
 	for i := 0; i < 100 * block_samples; i += block_samples {
 		end := if i + block_samples <= total_samples { i + block_samples } else { total_samples }
-		stream.input_processor(mut output[i..end], mut a_stream)
+		dsp.process_audio_chain(mut output[i..end], mut a_stream.chain_processors)
 	}
 
 	// Reset output buffer after warm-up
@@ -104,7 +104,7 @@ fn fsv_cli_benchmark() {
 		}
 
 		// Process slice directly in-place
-		stream.input_processor(mut output[i..end], mut a_stream)
+		dsp.process_audio_chain(mut output[i..end], mut a_stream.chain_processors)
 	}
 
 	elapsed := time.since(start)
@@ -158,7 +158,7 @@ fn fsv_cli_benchmark() {
 			}
 
 			// Process in-place
-			stream.input_processor(mut chunk, mut a_stream)
+			dsp.process_audio_chain(mut chunk, mut a_stream.chain_processors)
 		}
 
 		buf_elapsed := time.since(buf_start)

@@ -5,8 +5,9 @@ import time
 import os
 
 import core.formats.wav
-import core.stream
+import core.playback.audio as audio_playback
 import core.ring_buffer
+import core.dsp
 
 fn fsv_cli_play() {
 	if os.args.len != 3 {
@@ -22,17 +23,49 @@ fn fsv_cli_play() {
 
 	wpf := wav.parse(file_path) or { panic('Failed to parse WAV file: ${err}') }
 
-	logger.info('[cmd/play.v] Loaded: ${file_path}')
-	logger.info('[cmd/play.v] Sample Rate: ${wpf.sample_rate} Hz')
-	logger.info('[cmd/play.v] Channels: ${wpf.channels}')
-	logger.info('[cmd/play.v] Format: ${wpf.bits_per_sec}-bit PCM')
-	logger.info('[cmd/play.v] Full Format: ${wpf.format} PCM')
+	println('=== FusionSynthV Test Player ===')
+	println('Loaded             : ${file_path}')
+	println('Sample Rate        : ${wpf.sample_rate} Hz')
+	println('Channels           : ${wpf.channels}')
+	println('Format             : ${wpf.bits_per_sec}-bit PCM')
+	println('Full Format        : ${wpf.format} PCM')
+	processor_option := os.args[3..]
+	println('Enabled Processors : ${processor_option.len}')
+
+  mut processors_list := []dsp.ProcessorType{}
+	
+  for _, v in processor_option {
+		match v {
+			"1" {
+				println('✓ Volume Processor')
+				processors_list << volume_generator()
+			}
+			"2" {
+				println('✓ EQ Processor')
+				processors_list << eq_generator(wpf.sample_rate)
+			}
+			"3" {
+				println('✓ Reverb Processor')
+				processors_list << reverb_generator(wpf.sample_rate)
+			}
+			"4" {
+				println('✓ Compressor Processor')
+				processors_list << compressor_generator(wpf.sample_rate)
+			}
+			"5" {
+				println('✓ Limiter Processor') 
+				processors_list << limiter_generator()
+			}
+			else {}
+		} 
+  }
+	println('')
 
 	mut file := os.open(file_path) or { panic(err.msg()) }
 	file.seek(wpf.data_offset, .start) or { panic(err.msg()) }
 
 	// INFO: Create the audio stream with a 64k f32 sample ring buffer
-	mut a_stream := stream.AudioStream{
+	mut a_stream := audio_playback.AudioStream{
 		file: file
 		ring_buffer: ring_buffer.new_ring_buffer(65536)
 		channels: wpf.channels
@@ -40,22 +73,16 @@ fn fsv_cli_play() {
 		eof: false
 		total_read: 0
 		format: wpf.format
-		chain_processor: [
-			volume_generator(),
-			eq_generator(wpf.sample_rate),
-			reverb_generator(wpf.sample_rate),
-			compressor_generator(wpf.sample_rate),
-			limiter_generator(),
-		]
+		chain_processors: processors_list
 	}
 
 	// INFO: Preload the ring buffer before we start playback
-	stream.refill_stream(mut a_stream)
+	audio_playback.refill_stream(mut a_stream)
 
 	audio.setup(
 		sample_rate: wpf.sample_rate
 		num_channels: wpf.channels
-		stream_userdata_cb: stream.stream_callback
+		stream_userdata_cb: audio_playback.stream_callback
 		user_data: voidptr(&a_stream)
 	)
 
@@ -64,7 +91,7 @@ fn fsv_cli_play() {
 
 	for {
 		// INFO: Keep refilling the ring buffer from the main loop
-		stream.refill_stream(mut a_stream)
+		audio_playback.refill_stream(mut a_stream)
 
 		a_stream.ring_buffer.mutex.lock()
 		buffer_size := a_stream.ring_buffer.size
