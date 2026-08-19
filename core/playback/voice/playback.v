@@ -1,43 +1,16 @@
 module stream
 
-import core.ring_buffer
-import core.voicebank
 import core.dsp
+import definitions
+import processors
 
 import log
 
 const logger := log.Log{}
 
-pub struct VoiceAudioStream {
-pub mut:
-  sample            voicebank.VoiceSample
-  pitched_pcm       []f32
-
-  loop_start        u32
-  loop_end          u32
-
-  target_note       u8
-
-  playback_state    PlaybackState
-  playback_pos      u32
-  loop_pos          u32
-  release_requested bool
-
-  ring_buffer       ring_buffer.RingBuffer
-  stream_end        bool
-	chain_processors   []dsp.ProcessorType
-}
-
-pub enum PlaybackState {
-  attack
-  loop
-  release
-  finished
-}
-
 // INFO: Sokol audio stream callback
 pub fn voice_stream_callback(buffer &f32, num_frames int, num_channels int, user_data voidptr) {
-	mut s := unsafe { &VoiceAudioStream(user_data) }
+	mut s := unsafe { &definitions.VoiceAudioStream(user_data) }
 	total_samples := num_frames * num_channels
 
 	// INFO: Create a temporary slice representing Sokol's destination buffer
@@ -64,7 +37,7 @@ pub fn voice_stream_callback(buffer &f32, num_frames int, num_channels int, user
 	}
 }
 
-pub fn voice_refill_stream(mut s VoiceAudioStream) {
+pub fn voice_refill_stream(mut s definitions.VoiceAudioStream) {
   if s.stream_end {
     return
   }
@@ -75,7 +48,7 @@ pub fn voice_refill_stream(mut s VoiceAudioStream) {
     return
   }
 
-  pitch_shifter(mut s)
+  processors.pitch(mut s)
 
   // Generate raw voice from playback state
 	mut output := render_voice(mut s, s.pitched_pcm, available)

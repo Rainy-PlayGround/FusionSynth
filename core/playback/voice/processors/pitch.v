@@ -1,8 +1,9 @@
-module stream
+module processors
 
 import math
+import definitions
 
-fn pitch_shifter(mut s VoiceAudioStream) {
+pub fn pitch(mut s definitions.VoiceAudioStream) {
   if s.pitched_pcm.len != 0 {
     return
   }

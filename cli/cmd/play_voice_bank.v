@@ -7,6 +7,7 @@ import core.playback.voice as voice_playback
 import core.ring_buffer
 import core.voicebank
 import core.voicebank.note as voice_note
+import core.playback.voice.definitions
 
 struct VoiceNote {
 	phoneme string
@@ -34,7 +35,7 @@ fn rest(duration time.Duration) VoiceNote {
 	}
 }
 
-fn play_phoneme(mut s voice_playback.VoiceAudioStream, mut bank voicebank.VoiceBank, note VoiceNote) {
+fn play_phoneme(mut s definitions.VoiceAudioStream, mut bank voicebank.VoiceBank, note VoiceNote) {
 	sample := bank.load_voice_sample(note.phoneme) or {
 		println('Cannot load ${note.phoneme}: ${err}')
 		return
@@ -58,7 +59,7 @@ fn play_phoneme(mut s voice_playback.VoiceAudioStream, mut bank voicebank.VoiceB
 }
 
 
-fn play_silence(mut s voice_playback.VoiceAudioStream, duration time.Duration, sample_rate u32) {
+fn play_silence(mut s definitions.VoiceAudioStream, duration time.Duration, sample_rate u32) {
 	s.sample = voicebank.VoiceSample{}
 
 	s.pitched_pcm = []f32{
@@ -76,7 +77,7 @@ fn play_silence(mut s voice_playback.VoiceAudioStream, duration time.Duration, s
 	s.stream_end = false
 }
 
-fn play_next(mut s voice_playback.VoiceAudioStream, mut bank voicebank.VoiceBank, note VoiceNote, sample_rate u32) {
+fn play_next(mut s definitions.VoiceAudioStream, mut bank voicebank.VoiceBank, note VoiceNote, sample_rate u32) {
 	if note.silence {
 		play_silence(mut s, note.duration, sample_rate)
 		return
@@ -104,7 +105,7 @@ fn fsv_cli_play_voice_bank() {
 		return
 	}
 
-	mut a_stream := voice_playback.VoiceAudioStream{
+	mut a_stream := definitions.VoiceAudioStream{
 		ring_buffer: ring_buffer.new_ring_buffer(16384)
 		stream_end: true
 		playback_state: .finished
@@ -145,7 +146,7 @@ fn fsv_cli_play_voice_bank() {
     if
 			a_stream.stream_end && 
 			buffer_size == 0 && 
-			a_stream.playback_state == voice_playback.PlaybackState.finished && 
+			a_stream.playback_state == definitions.PlaybackState.finished && 
 			sequence_index >= sequence.len
 		{
       break

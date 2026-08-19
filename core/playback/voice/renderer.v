@@ -1,6 +1,8 @@
 module stream
 
-fn render_voice(mut s VoiceAudioStream, pcm []f32, samples int) []f32 {
+import definitions
+
+fn render_voice(mut s definitions.VoiceAudioStream, pcm []f32, samples int) []f32 {
   mut output := []f32{cap: samples}
   fade_len := 64 // ~1.3ms at 48kHz; tune to taste, must be << shortest phoneme
 
